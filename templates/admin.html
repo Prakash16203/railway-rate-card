@@ -123,7 +123,7 @@
                         <tr>
                             <td>{{ loop.index }}</td>
                             <td>{{ v.account_name or '' }}</td>
-                            <td>{{ v.account_group.group_name if v.account_group else '-' }}</td>
+                            <td>{{ v.account_group or '-' }}</td>
                             <td>{{ v.mobile or '' }}</td>
                             <td>{{ v.city or '' }}</td>
                             <td>
@@ -399,4 +399,5 @@
     </div>
 </div>
 </body>
+
 </html>
