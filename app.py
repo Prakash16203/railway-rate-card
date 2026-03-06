@@ -175,11 +175,9 @@ def admin():
         return redirect(url_for("admin", tab=tab))
 
     # ── Vendors CRUD ────────────────────────────────────────
-
+    vendor = None
     if tab == "vendors":
-
         if request.method == "POST" and "save_vendor" in request.form:
-    
             # Get the group name from the selected group ID
             account_group_id = request.form.get("account_group_id")
             account_group_name = None
@@ -188,11 +186,11 @@ def admin():
                 group = AccountGroup.query.get(int(account_group_id))
                 if group:
                     account_group_name = group.group_name
-    
+
             # Prepare data for Vendor model (matches model fields exactly)
             data = {
                 "account_name": request.form.get("account_name", ""),
-                "account_group": account_group_name,  # ← FIXED: using string name, not ID
+                "account_group": account_group_name,  # ← using string name, not ID
                 "email": request.form.get("email", ""),
                 "mobile": request.form.get("mobile", ""),
                 "alt_mobile": request.form.get("alt_mobile", ""),
@@ -206,7 +204,7 @@ def admin():
                 "aadhaar": request.form.get("aadhaar", ""),
                 "remark": request.form.get("remark", "")
             }
-    
+
             # Check if we're editing (has vendor_id in form) OR (action is edit with edit_id)
             vendor_id = request.form.get("vendor_id")
             
@@ -235,15 +233,15 @@ def admin():
                 db.session.add(new_vendor)
                 db.session.commit()
                 flash("Vendor added successfully!", "success")
-    
+
             return redirect(url_for("admin", tab="vendors"))
-    
+
         # Get vendor for editing
-        vendor = None
         if action == "edit" and edit_id:
             vendor = Vendor.query.get(int(edit_id))
 
     # ── Rate Cards CRUD ─────────────────────────────────────
+    ratecard = None
     if tab == "ratecards":
         if request.method == "POST" and "save_ratecard" in request.form:
             data = {
@@ -281,11 +279,11 @@ def admin():
 
             return redirect(url_for("admin", tab="ratecards"))
 
-        ratecard = None
         if action in ["add", "edit"] and edit_id:
             ratecard = RateCard.query.get(int(edit_id))
 
     # ── Settings (Account Groups) ───────────────────────────
+    group = None
     if tab == "settings":
         if request.method == "POST" and "save_group" in request.form:
             group_name = request.form.get("group_name", "").strip()
@@ -313,7 +311,6 @@ def admin():
 
             return redirect(url_for("admin", tab="settings"))
 
-        group = None
         if action == "edit" and edit_id:
             group = AccountGroup.query.get(int(edit_id))
 
@@ -355,6 +352,3 @@ def logout():
 if __name__ == "__main__":
     port = int(os.getenv("PORT", 5000))
     app.run(host="0.0.0.0", port=port, debug=False)
-
-
-
