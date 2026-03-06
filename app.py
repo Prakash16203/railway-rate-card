@@ -178,70 +178,70 @@ def admin():
 
     if tab == "vendors":
 
-    if request.method == "POST" and "save_vendor" in request.form:
-
-        # Get the group name from the selected group ID
-        account_group_id = request.form.get("account_group_id")
-        account_group_name = None
-        
-        if account_group_id:
-            group = AccountGroup.query.get(int(account_group_id))
-            if group:
-                account_group_name = group.group_name
-
-        # Prepare data for Vendor model (matches model fields exactly)
-        data = {
-            "account_name": request.form.get("account_name", ""),
-            "account_group": account_group_name,  # ← FIXED: using string name, not ID
-            "email": request.form.get("email", ""),
-            "mobile": request.form.get("mobile", ""),
-            "alt_mobile": request.form.get("alt_mobile", ""),
-            "address1": request.form.get("address1", ""),
-            "address2": request.form.get("address2", ""),
-            "city": request.form.get("city", "").upper(),
-            "state": request.form.get("state", "").upper(),
-            "pin": request.form.get("pin", ""),
-            "gst": request.form.get("gst", ""),
-            "pan": request.form.get("pan", ""),
-            "aadhaar": request.form.get("aadhaar", ""),
-            "remark": request.form.get("remark", "")
-        }
-
-        # Check if we're editing (has vendor_id in form) OR (action is edit with edit_id)
-        vendor_id = request.form.get("vendor_id")
-        
-        if vendor_id:  # Edit existing
-            vendor = Vendor.query.get(int(vendor_id))
-            if vendor:
-                for k, v in data.items():
-                    setattr(vendor, k, v)
+        if request.method == "POST" and "save_vendor" in request.form:
+    
+            # Get the group name from the selected group ID
+            account_group_id = request.form.get("account_group_id")
+            account_group_name = None
+            
+            if account_group_id:
+                group = AccountGroup.query.get(int(account_group_id))
+                if group:
+                    account_group_name = group.group_name
+    
+            # Prepare data for Vendor model (matches model fields exactly)
+            data = {
+                "account_name": request.form.get("account_name", ""),
+                "account_group": account_group_name,  # ← FIXED: using string name, not ID
+                "email": request.form.get("email", ""),
+                "mobile": request.form.get("mobile", ""),
+                "alt_mobile": request.form.get("alt_mobile", ""),
+                "address1": request.form.get("address1", ""),
+                "address2": request.form.get("address2", ""),
+                "city": request.form.get("city", "").upper(),
+                "state": request.form.get("state", "").upper(),
+                "pin": request.form.get("pin", ""),
+                "gst": request.form.get("gst", ""),
+                "pan": request.form.get("pan", ""),
+                "aadhaar": request.form.get("aadhaar", ""),
+                "remark": request.form.get("remark", "")
+            }
+    
+            # Check if we're editing (has vendor_id in form) OR (action is edit with edit_id)
+            vendor_id = request.form.get("vendor_id")
+            
+            if vendor_id:  # Edit existing
+                vendor = Vendor.query.get(int(vendor_id))
+                if vendor:
+                    for k, v in data.items():
+                        setattr(vendor, k, v)
+                    db.session.commit()
+                    flash("Vendor updated successfully!", "success")
+                else:
+                    flash("Vendor not found!", "error")
+                    
+            elif action == "edit" and edit_id:  # Alternative edit detection
+                vendor = Vendor.query.get(int(edit_id))
+                if vendor:
+                    for k, v in data.items():
+                        setattr(vendor, k, v)
+                    db.session.commit()
+                    flash("Vendor updated successfully!", "success")
+                else:
+                    flash("Vendor not found!", "error")
+                    
+            else:  # Add new
+                new_vendor = Vendor(**data)
+                db.session.add(new_vendor)
                 db.session.commit()
-                flash("Vendor updated successfully!", "success")
-            else:
-                flash("Vendor not found!", "error")
-                
-        elif action == "edit" and edit_id:  # Alternative edit detection
+                flash("Vendor added successfully!", "success")
+    
+            return redirect(url_for("admin", tab="vendors"))
+    
+        # Get vendor for editing
+        vendor = None
+        if action == "edit" and edit_id:
             vendor = Vendor.query.get(int(edit_id))
-            if vendor:
-                for k, v in data.items():
-                    setattr(vendor, k, v)
-                db.session.commit()
-                flash("Vendor updated successfully!", "success")
-            else:
-                flash("Vendor not found!", "error")
-                
-        else:  # Add new
-            new_vendor = Vendor(**data)
-            db.session.add(new_vendor)
-            db.session.commit()
-            flash("Vendor added successfully!", "success")
-
-        return redirect(url_for("admin", tab="vendors"))
-
-    # Get vendor for editing
-    vendor = None
-    if action == "edit" and edit_id:
-        vendor = Vendor.query.get(int(edit_id))
 
     # ── Rate Cards CRUD ─────────────────────────────────────
     if tab == "ratecards":
@@ -355,4 +355,5 @@ def logout():
 if __name__ == "__main__":
     port = int(os.getenv("PORT", 5000))
     app.run(host="0.0.0.0", port=port, debug=False)
+
 
