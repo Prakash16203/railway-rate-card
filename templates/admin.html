@@ -97,7 +97,7 @@
     </div>
     {% endif %}
 
-    <!-- Tab: Vendors -->
+    <!-- Tab: Vendors - COMPLETELY FIXED VERSION -->
     {% if tab == 'vendors' %}
     {% if action == 'list' or action is none %}
         <div class="card">
@@ -143,7 +143,7 @@
             </div>
         </div>
     {% else %}
-        <!-- Add / Edit Vendor Form -->
+        <!-- Add / Edit Vendor Form - FULLY FIXED -->
         <div class="card">
             <div class="card-header">
                 {% if action == 'edit' %}Edit Vendor{% else %}Add New Vendor{% endif %}
@@ -151,9 +151,15 @@
             <div class="card-body">
                 <form method="POST">
                     <input type="hidden" name="save_vendor" value="1">
+                    
+                    <!-- CRITICAL FIX 1: Add vendor ID hidden field for edit operations -->
+                    {% if action == 'edit' and vendor and vendor.id %}
+                    <input type="hidden" name="vendor_id" value="{{ vendor.id }}">
+                    {% endif %}
+                    
                     <div class="row g-3">
                         <div class="col-md-6">
-                            <label class="form-label">Account Name</label>
+                            <label class="form-label">Account Name <span class="text-danger">*</span></label>
                             <input type="text" name="account_name" class="form-control" value="{{ vendor.account_name or '' }}" required>
                         </div>
                         <div class="col-md-6">
@@ -161,8 +167,9 @@
                             <select name="account_group_id" class="form-select">
                                 <option value="">-- Select Group --</option>
                                 {% for g in account_groups %}
+                                <!-- CRITICAL FIX 2: Compare with string value, not object -->
                                 <option value="{{ g.sr_no }}" 
-                                        {% if vendor.account_group and vendor.account_group.sr_no == g.sr_no %}selected{% endif %}>
+                                        {% if vendor and vendor.account_group == g.group_name %}selected{% endif %}>
                                     {{ g.group_name }}
                                 </option>
                                 {% endfor %}
@@ -173,7 +180,7 @@
                             <input type="email" name="email" class="form-control" value="{{ vendor.email or '' }}">
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label">Mobile No</label>
+                            <label class="form-label">Mobile No <span class="text-danger">*</span></label>
                             <input type="text" name="mobile" class="form-control" value="{{ vendor.mobile or '' }}" required>
                         </div>
                         <div class="col-md-6">
@@ -218,7 +225,9 @@
                         </div>
                     </div>
                     <div class="mt-4">
-                        <button type="submit" class="btn btn-success">Save Vendor</button>
+                        <button type="submit" class="btn btn-success">
+                            {% if action == 'edit' %}Update Vendor{% else %}Save Vendor{% endif %}
+                        </button>
                         <a href="{{ url_for('admin', tab='vendors') }}" class="btn btn-secondary">Back to List</a>
                     </div>
                 </form>
@@ -277,7 +286,7 @@
             </div>
         </div>
     {% else %}
-        <!-- Rate Card Form (unchanged except vendor_id name) -->
+        <!-- Rate Card Form -->
         <div class="card">
             <div class="card-header">
                 {% if action == 'edit' %}Edit Rate Card{% else %}Add New Rate Card{% endif %}
@@ -285,8 +294,56 @@
             <div class="card-body">
                 <form method="POST">
                     <input type="hidden" name="save_ratecard" value="1">
+                    <!-- Rate card ID hidden field for edits -->
+                    {% if action == 'edit' and ratecard and ratecard.id %}
+                    <input type="hidden" name="ratecard_id" value="{{ ratecard.id }}">
+                    {% endif %}
+                    
                     <div class="row g-3">
-                        <!-- ... (keeping most fields same) ... -->
+                        <div class="col-md-6">
+                            <label class="form-label">Train No</label>
+                            <input type="text" name="train_no" class="form-control" value="{{ ratecard.train_no or '' }}">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Vehicle Type</label>
+                            <input type="text" name="vehicle_type" class="form-control" value="{{ ratecard.vehicle_type or '' }}">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Weight Capacity</label>
+                            <input type="text" name="weight_capacity" class="form-control" value="{{ ratecard.weight_capacity or '' }}">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Parcel Type</label>
+                            <input type="text" name="parcel_type" class="form-control" value="{{ ratecard.parcel_type or '' }}">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Days</label>
+                            <input type="text" name="days" class="form-control" value="{{ ratecard.days or '' }}">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Origin Station</label>
+                            <input type="text" name="origin_station" class="form-control" value="{{ ratecard.origin_station or '' }}" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Origin Code</label>
+                            <input type="text" name="origin_code" class="form-control" value="{{ ratecard.origin_code or '' }}">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Destination Station</label>
+                            <input type="text" name="dest_station" class="form-control" value="{{ ratecard.dest_station or '' }}" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Destination Code</label>
+                            <input type="text" name="dest_code" class="form-control" value="{{ ratecard.dest_code or '' }}">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Rate Type</label>
+                            <input type="text" name="rate_type" class="form-control" value="{{ ratecard.rate_type or '' }}">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Rate Card <span class="text-danger">*</span></label>
+                            <input type="text" name="rate_card" class="form-control" value="{{ ratecard.rate_card or '' }}" required>
+                        </div>
                         <div class="col-md-6">
                             <label class="form-label">Vendor / Owner / Broker</label>
                             {% if vendors %}
@@ -303,12 +360,26 @@
                             <div class="alert alert-warning">No vendors yet. Add vendors first.</div>
                             {% endif %}
                         </div>
-                        <!-- ... rest of the form remains same ... -->
                         <div class="col-md-6">
-                            <label class="form-label">Rate Card</label>
-                            <input type="text" name="rate_card" class="form-control" value="{{ ratecard.rate_card or '' }}" required>
+                            <label class="form-label">Origin Person</label>
+                            <input type="text" name="origin_person" class="form-control" value="{{ ratecard.origin_person or '' }}">
                         </div>
-                        <!-- ... other fields ... -->
+                        <div class="col-md-6">
+                            <label class="form-label">Origin Mobile</label>
+                            <input type="text" name="origin_mobile" class="form-control" value="{{ ratecard.origin_mobile or '' }}">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Destination Person</label>
+                            <input type="text" name="dest_person" class="form-control" value="{{ ratecard.dest_person or '' }}">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Destination Mobile</label>
+                            <input type="text" name="dest_mobile" class="form-control" value="{{ ratecard.dest_mobile or '' }}">
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label">Remark</label>
+                            <textarea name="remark" class="form-control" rows="2">{{ ratecard.remark or '' }}</textarea>
+                        </div>
                     </div>
                     <div class="mt-4">
                         <button type="submit" class="btn btn-success">Save Rate Card</button>
@@ -320,7 +391,7 @@
     {% endif %}
     {% endif %}
 
-    <!-- Tab: Settings (New) -->
+    <!-- Tab: Settings -->
     {% if tab == 'settings' %}
     <div class="card">
         <div class="card-header d-flex justify-content-between align-items-center">
@@ -337,9 +408,14 @@
                 <div class="card-body">
                     <form method="POST">
                         <input type="hidden" name="save_group" value="1">
+                        <!-- Group ID hidden field for edits -->
+                        {% if action == 'edit' and group and group.sr_no %}
+                        <input type="hidden" name="group_id" value="{{ group.sr_no }}">
+                        {% endif %}
+                        
                         <div class="row g-3">
                             <div class="col-md-6">
-                                <label class="form-label">Group Name</label>
+                                <label class="form-label">Group Name <span class="text-danger">*</span></label>
                                 <input type="text" name="group_name" class="form-control" 
                                        value="{{ group.group_name if group else '' }}" required>
                             </div>
@@ -399,5 +475,4 @@
     </div>
 </div>
 </body>
-
 </html>
