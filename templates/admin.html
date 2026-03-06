@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Admin Panel</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body class="bg-light">
+<div class="container mt-4">
+    <h2 class="text-center mb-4">Admin Panel</h2>
+
+    <!-- Tabs Navigation -->
+    <ul class="nav nav-tabs mb-4">
+        <li class="nav-item">
+            <a class="nav-link {% if tab == 'search' %}active{% endif %}" href="{{ url_for('admin', tab='search') }}">Rate & Vendor Search</a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link {% if tab == 'vendors' %}active{% endif %}" href="{{ url_for('admin', tab='vendors') }}">Vendors / Brokers</a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link {% if tab == 'ratecards' %}active{% endif %}" href="{{ url_for('admin', tab='ratecards') }}">Train / Vehicle Rates</a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link {% if tab == 'settings' %}active{% endif %}" href="{{ url_for('admin', tab='settings') }}">Settings</a>
+        </li>
+    </ul>
+
+    <!-- Messages -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="alert alert-{{ 'success' if category in ['message','success'] else 'danger' }} mt-3">
+                    {{ message }}
+                </div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
+    {% if message %}
+        <div class="alert alert-success mt-3">{{ message }}</div>
+    {% endif %}
+
+    <!-- Tab: Search -->
+    {% if tab == 'search' or tab is none %}
+    <div class="card mb-4">
+        <div class="card-header">Station Rate & SLR Search</div>
+        <div class="card-body">
+            <form method="POST">
+                <input type="hidden" name="search_rate" value="1">
+                <div class="row g-3">
+                    <div class="col">
+                        <label>From Station</label>
+                        <input type="text" name="from_station" class="form-control" placeholder="e.g. S1" required>
+                    </div>
+                    <div class="col">
+                        <label>To Station</label>
+                        <input type="text" name="to_station" class="form-control" placeholder="e.g. S2" required>
+                    </div>
+                </div>
+                <button type="submit" class="btn btn-primary mt-3">Search</button>
+            </form>
+
+            {% if rate_result %}
+            <div class="mt-4">
+                <div class="alert alert-info">
+                    <strong>Rate Card:</strong> {{ rate_result.rate_card }}<br>
+                    <strong>SLR:</strong> {{ rate_result.slr or 'Not available' }}
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-header">City-wise Vendor List</div>
+        <div class="card-body">
+            <form method="POST">
+                <input type="hidden" name="search_city" value="1">
+                <div class="mb-3">
+                    <label>City</label>
+                    <input type="text" name="city" class="form-control" placeholder="e.g. PUNE" required>
+                </div>
+                <button type="submit" class="btn btn-primary">Show Vendors</button>
+            </form>
+
+            {% if vendors_list %}
+            <div class="mt-4">
+                <h5>Vendors in this city:</h5>
+                <ul class="list-group">
+                    {% for v in vendors_list %}
+                    <li class="list-group-item">{{ v }}</li>
+                    {% endfor %}
+                </ul>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Tab: Vendors -->
+    {% if tab == 'vendors' %}
+    {% if action == 'list' or action is none %}
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                Vendors / Brokers
+                <a href="{{ url_for('admin', tab='vendors', action='add') }}" class="btn btn-success btn-sm">+ Add New Vendor</a>
+            </div>
+            <div class="card-body">
+                {% if vendors %}
+                <table class="table table-striped table-hover">
+                    <thead>
+                        <tr>
+                            <th>No.</th>
+                            <th>Account Name</th>
+                            <th>Group</th>
+                            <th>Mobile</th>
+                            <th>City</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for v in vendors %}
+                        <tr>
+                            <td>{{ loop.index }}</td>
+                            <td>{{ v.account_name or '' }}</td>
+                            <td>{{ v.account_group.group_name if v.account_group else '-' }}</td>
+                            <td>{{ v.mobile or '' }}</td>
+                            <td>{{ v.city or '' }}</td>
+                            <td>
+                                <a href="{{ url_for('admin', tab='vendors', action='edit', edit_id=v.id) }}" 
+                                   class="btn btn-sm btn-warning">Edit</a>
+                                <a href="{{ url_for('admin', tab='vendors', action='delete', edit_id=v.id) }}" 
+                                   class="btn btn-sm btn-danger ms-1"
+                                   onclick="return confirm('Are you sure?');">Delete</a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+                {% else %}
+                <p class="text-muted">No vendors added yet.</p>
+                {% endif %}
+            </div>
+        </div>
+    {% else %}
+        <!-- Add / Edit Vendor Form -->
+        <div class="card">
+            <div class="card-header">
+                {% if action == 'edit' %}Edit Vendor{% else %}Add New Vendor{% endif %}
+            </div>
+            <div class="card-body">
+                <form method="POST">
+                    <input type="hidden" name="save_vendor" value="1">
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Account Name</label>
+                            <input type="text" name="account_name" class="form-control" value="{{ vendor.account_name or '' }}" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Account Group</label>
+                            <select name="account_group_id" class="form-select">
+                                <option value="">-- Select Group --</option>
+                                {% for g in account_groups %}
+                                <option value="{{ g.sr_no }}" 
+                                        {% if vendor.account_group and vendor.account_group.sr_no == g.sr_no %}selected{% endif %}>
+                                    {{ g.group_name }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Email</label>
+                            <input type="email" name="email" class="form-control" value="{{ vendor.email or '' }}">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Mobile No</label>
+                            <input type="text" name="mobile" class="form-control" value="{{ vendor.mobile or '' }}" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Alternative No</label>
+                            <input type="text" name="alt_mobile" class="form-control" value="{{ vendor.alt_mobile or '' }}">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">GST No</label>
+                            <input type="text" name="gst" class="form-control" value="{{ vendor.gst or '' }}">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Pan No</label>
+                            <input type="text" name="pan" class="form-control" value="{{ vendor.pan or '' }}">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Aadhaar No</label>
+                            <input type="text" name="aadhaar" class="form-control" value="{{ vendor.aadhaar or '' }}">
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label">Address Line 1</label>
+                            <input type="text" name="address1" class="form-control" value="{{ vendor.address1 or '' }}">
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label">Address Line 2</label>
+                            <input type="text" name="address2" class="form-control" value="{{ vendor.address2 or '' }}">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">City</label>
+                            <input type="text" name="city" class="form-control" value="{{ vendor.city or '' }}">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">State</label>
+                            <input type="text" name="state" class="form-control" value="{{ vendor.state or '' }}">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Pin</label>
+                            <input type="text" name="pin" class="form-control" value="{{ vendor.pin or '' }}">
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label">Remark</label>
+                            <textarea name="remark" class="form-control" rows="2">{{ vendor.remark or '' }}</textarea>
+                        </div>
+                    </div>
+                    <div class="mt-4">
+                        <button type="submit" class="btn btn-success">Save Vendor</button>
+                        <a href="{{ url_for('admin', tab='vendors') }}" class="btn btn-secondary">Back to List</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    {% endif %}
+    {% endif %}
+
+    <!-- Tab: Rate Cards -->
+    {% if tab == 'ratecards' %}
+    {% if action == 'list' or action is none %}
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                Train / Vehicle Rate Cards
+                <a href="{{ url_for('admin', tab='ratecards', action='add') }}" class="btn btn-success btn-sm">+ Add New Rate Card</a>
+            </div>
+            <div class="card-body">
+                {% if ratecards %}
+                <div class="table-responsive">
+                    <table class="table table-striped table-hover">
+                        <thead>
+                            <tr>
+                                <th>No.</th>
+                                <th>Train No</th>
+                                <th>Origin → Dest</th>
+                                <th>Rate Card</th>
+                                <th>Vehicle Type</th>
+                                <th>Days</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for r in ratecards %}
+                            <tr>
+                                <td>{{ loop.index }}</td>
+                                <td>{{ r.train_no or '' }}</td>
+                                <td>{{ r.origin_station or '' }} → {{ r.dest_station or '' }}</td>
+                                <td>{{ r.rate_card or '' }}</td>
+                                <td>{{ r.vehicle_type or '' }}</td>
+                                <td>{{ r.days or '' }}</td>
+                                <td>
+                                    <a href="{{ url_for('admin', tab='ratecards', action='edit', edit_id=r.id) }}" 
+                                       class="btn btn-sm btn-warning">Edit</a>
+                                    <a href="{{ url_for('admin', tab='ratecards', action='delete', edit_id=r.id) }}" 
+                                       class="btn btn-sm btn-danger ms-1"
+                                       onclick="return confirm('Are you sure?');">Delete</a>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <p class="text-muted">No rate cards added yet.</p>
+                {% endif %}
+            </div>
+        </div>
+    {% else %}
+        <!-- Rate Card Form (unchanged except vendor_id name) -->
+        <div class="card">
+            <div class="card-header">
+                {% if action == 'edit' %}Edit Rate Card{% else %}Add New Rate Card{% endif %}
+            </div>
+            <div class="card-body">
+                <form method="POST">
+                    <input type="hidden" name="save_ratecard" value="1">
+                    <div class="row g-3">
+                        <!-- ... (keeping most fields same) ... -->
+                        <div class="col-md-6">
+                            <label class="form-label">Vendor / Owner / Broker</label>
+                            {% if vendors %}
+                            <select name="vendor_id" class="form-select">
+                                <option value="">-- Select Vendor --</option>
+                                {% for v in vendors %}
+                                <option value="{{ v.id }}" 
+                                        {% if ratecard and ratecard.vendor_id == v.id %}selected{% endif %}>
+                                    {{ v.account_name }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                            {% else %}
+                            <div class="alert alert-warning">No vendors yet. Add vendors first.</div>
+                            {% endif %}
+                        </div>
+                        <!-- ... rest of the form remains same ... -->
+                        <div class="col-md-6">
+                            <label class="form-label">Rate Card</label>
+                            <input type="text" name="rate_card" class="form-control" value="{{ ratecard.rate_card or '' }}" required>
+                        </div>
+                        <!-- ... other fields ... -->
+                    </div>
+                    <div class="mt-4">
+                        <button type="submit" class="btn btn-success">Save Rate Card</button>
+                        <a href="{{ url_for('admin', tab='ratecards') }}" class="btn btn-secondary">Back</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    {% endif %}
+    {% endif %}
+
+    <!-- Tab: Settings (New) -->
+    {% if tab == 'settings' %}
+    <div class="card">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            Account Groups Management
+            <a href="{{ url_for('admin', tab='settings', action='add') }}" class="btn btn-success btn-sm">+ Add New Group</a>
+        </div>
+        <div class="card-body">
+            {% if action in ['add', 'edit'] %}
+            <!-- Add / Edit Group Form -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    {% if action == 'edit' %}Edit Account Group{% else %}Add New Account Group{% endif %}
+                </div>
+                <div class="card-body">
+                    <form method="POST">
+                        <input type="hidden" name="save_group" value="1">
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label class="form-label">Group Name</label>
+                                <input type="text" name="group_name" class="form-control" 
+                                       value="{{ group.group_name if group else '' }}" required>
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label">Remark</label>
+                                <textarea name="remark" class="form-control" rows="3">{{ group.remark if group else '' }}</textarea>
+                            </div>
+                        </div>
+                        <div class="mt-4">
+                            <button type="submit" class="btn btn-success">Save Group</button>
+                            <a href="{{ url_for('admin', tab='settings') }}" class="btn btn-secondary">Cancel</a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- List of Groups -->
+            {% if account_groups %}
+            <table class="table table-striped">
+                <thead>
+                    <tr>
+                        <th>Sr No</th>
+                        <th>Group Name</th>
+                        <th>Remark</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for g in account_groups %}
+                    <tr>
+                        <td>{{ g.sr_no }}</td>
+                        <td>{{ g.group_name }}</td>
+                        <td>{{ g.remark or '-' }}</td>
+                        <td>
+                            <a href="{{ url_for('admin', tab='settings', action='edit', edit_id=g.sr_no) }}" 
+                               class="btn btn-sm btn-warning">Edit</a>
+                            <a href="{{ url_for('admin', tab='settings', action='delete', edit_id=g.sr_no) }}" 
+                               class="btn btn-sm btn-danger ms-1"
+                               onclick="return confirm('Delete this group? Vendors using it will lose the association.');">
+                                Delete
+                            </a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <p class="text-muted">No account groups created yet.</p>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+
+    <div class="text-center mt-5">
+        <a href="{{ url_for('logout') }}" class="btn btn-outline-danger">Logout</a>
+    </div>
+</div>
+</body>
+</html>

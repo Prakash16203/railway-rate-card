@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Customer - Rate Card</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        .search-section { display: none; }
+        .search-section.active { display: block; }
+        #weightResult {
+            min-height: 60px;
+            font-size: 1.1rem;
+            font-weight: 500;
+        }
+    </style>
+</head>
+<body class="bg-light">
+<div class="container mt-4">
+    <h2 class="text-center mb-4">Welcome, Customer</h2>
+    <div class="card">
+        <div class="card-header">Find Rate / Calculate Weight</div>
+        <div class="card-body">
+
+            <form method="POST" id="rateForm">
+                <!-- Choose search method -->
+                <div class="mb-4">
+                    <label class="form-label fw-bold">Search / Calculate By:</label>
+                    <div class="form-check form-check-inline">
+                        <input class="form-check-input" type="radio" name="search_type" id="byRoute" value="route"
+                               {% if search_type != 'train' and search_type != 'weight' %}checked{% endif %}>
+                        <label class="form-check-label" for="byRoute">Station Route</label>
+                    </div>
+                    <div class="form-check form-check-inline">
+                        <input class="form-check-input" type="radio" name="search_type" id="byTrain" value="train"
+                               {% if search_type == 'train' %}checked{% endif %}>
+                        <label class="form-check-label" for="byTrain">Train Number</label>
+                    </div>
+                    <div class="form-check form-check-inline">
+                        <input class="form-check-input" type="radio" name="search_type" id="byWeight" value="weight"
+                               {% if search_type == 'weight' %}checked{% endif %}>
+                        <label class="form-check-label" for="byWeight">Weight Calculated</label>
+                    </div>
+                </div>
+
+                <!-- Station Route section -->
+                <div id="routeSection" class="search-section row g-3
+                     {% if search_type == 'train' or search_type == 'weight' %}d-none{% else %}active{% endif %}">
+                    <div class="col">
+                        <label class="form-label">From Station</label>
+                        <input type="text" name="from_station" class="form-control" placeholder="e.g. S1" autocomplete="off"
+                               value="{{ request.form.from_station or '' }}">
+                    </div>
+                    <div class="col">
+                        <label class="form-label">To Station</label>
+                        <input type="text" name="to_station" class="form-control" placeholder="e.g. S2" autocomplete="off"
+                               value="{{ request.form.to_station or '' }}">
+                    </div>
+                </div>
+
+                <!-- Train Number section -->
+                <div id="trainSection" class="search-section
+                     {% if search_type == 'train' %}active{% else %}d-none{% endif %}">
+                    <div class="mb-3">
+                        <label class="form-label">Train Number</label>
+                        <input type="text" name="train_number" class="form-control" placeholder="e.g. 1234" autocomplete="off"
+                               value="{{ request.form.train_number or '' }}">
+                    </div>
+                </div>
+
+                <!-- Weight Calculated section -->
+                <div id="weightSection" class="search-section
+                     {% if search_type == 'weight' %}active{% else %}d-none{% endif %}">
+                    <div class="row g-3">
+                        <div class="col-md-4">
+                            <label class="form-label">Length (cm)</label>
+                            <input type="number" id="length" class="form-control" placeholder="e.g. 60" min="0" step="0.1">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Height (cm)</label>
+                            <input type="number" id="height" class="form-control" placeholder="e.g. 40" min="0" step="0.1">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Width (cm)</label>
+                            <input type="number" id="width" class="form-control" placeholder="e.g. 30" min="0" step="0.1">
+                        </div>
+                    </div>
+                    <div class="mt-4">
+                        <div class="alert alert-secondary" id="weightResult">
+                            Volumetric weight will appear here...
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Submit button only for route/train searches -->
+                <div id="submitButtonDiv" {% if search_type == 'weight' %}class="d-none"{% endif %}>
+                    <button type="submit" class="btn btn-success mt-3">Search Rate</button>
+                </div>
+            </form>
+
+            {% if result %}
+            <div class="alert alert-info mt-4">
+                <strong>Rate Card:</strong> {{ result }}
+            </div>
+            {% endif %}
+
+            {% if error %}
+            <div class="alert alert-warning mt-4">
+                {{ error }}
+            </div>
+            {% endif %}
+
+        </div>
+    </div>
+
+    <div class="text-center mt-4">
+        <a href="{{ url_for('logout') }}" class="btn btn-outline-danger">Logout</a>
+    </div>
+</div>
+
+<script>
+    // ───────────────────────────────────────────────
+    // Elements
+    // ───────────────────────────────────────────────
+    const routeSection   = document.getElementById('routeSection');
+    const trainSection   = document.getElementById('trainSection');
+    const weightSection  = document.getElementById('weightSection');
+    const submitButtonDiv = document.getElementById('submitButtonDiv');
+    const radios = document.querySelectorAll('input[name="search_type"]');
+
+    const lengthInput = document.getElementById('length');
+    const heightInput = document.getElementById('height');
+    const widthInput  = document.getElementById('width');
+    const resultDiv   = document.getElementById('weightResult');
+
+    // ───────────────────────────────────────────────
+    // Toggle between search sections
+    // ───────────────────────────────────────────────
+    function toggleSections() {
+        const isRoute  = document.getElementById('byRoute').checked;
+        const isTrain  = document.getElementById('byTrain').checked;
+        // const isWeight = document.getElementById('byWeight').checked;
+
+        // Route
+        if (isRoute) {
+            routeSection.classList.remove('d-none');
+            routeSection.classList.add('active');
+            trainSection.classList.add('d-none');
+            weightSection.classList.add('d-none');
+            submitButtonDiv.classList.remove('d-none');
+            // clear others
+            document.querySelector('input[name="train_number"]').value = '';
+            lengthInput.value = heightInput.value = widthInput.value = '';
+            resultDiv.innerHTML = 'Volumetric weight will appear here...';
+        }
+        // Train
+        else if (isTrain) {
+            trainSection.classList.remove('d-none');
+            trainSection.classList.add('active');
+            routeSection.classList.add('d-none');
+            weightSection.classList.add('d-none');
+            submitButtonDiv.classList.remove('d-none');
+            // clear others
+            document.querySelector('input[name="from_station"]').value = '';
+            document.querySelector('input[name="to_station"]').value = '';
+            lengthInput.value = heightInput.value = widthInput.value = '';
+            resultDiv.innerHTML = 'Volumetric weight will appear here...';
+        }
+        // Weight
+        else {
+            weightSection.classList.remove('d-none');
+            weightSection.classList.add('active');
+            routeSection.classList.add('d-none');
+            trainSection.classList.add('d-none');
+            submitButtonDiv.classList.add('d-none');
+            // clear route/train
+            document.querySelector('input[name="from_station"]').value = '';
+            document.querySelector('input[name="to_station"]').value = '';
+            document.querySelector('input[name="train_number"]').value = '';
+            calculateWeight(); // show immediately if values exist
+        }
+    }
+
+    // ───────────────────────────────────────────────
+    // Calculate volumetric weight
+    // ───────────────────────────────────────────────
+    function calculateWeight() {
+        const l = parseFloat(lengthInput.value) || 0;
+        const h = parseFloat(heightInput.value) || 0;
+        const w = parseFloat(widthInput.value)  || 0;
+
+        if (l === 0 || h === 0 || w === 0) {
+            resultDiv.innerHTML = 'Volumetric weight will appear here...';
+            resultDiv.className = 'alert alert-secondary';
+            return;
+        }
+
+        const volume = l * h * w;
+        const weight = volume / 5000;
+        const rounded = Math.round(weight * 100) / 100; // 2 decimal places
+
+        resultDiv.innerHTML = `
+            <strong>Volumetric weight:</strong> ${rounded} kg<br>
+        `;
+        resultDiv.className = 'alert alert-primary';
+    }
+
+    // ───────────────────────────────────────────────
+    // Event listeners
+    // ───────────────────────────────────────────────
+    radios.forEach(radio => {
+        radio.addEventListener('change', toggleSections);
+    });
+
+    // Real-time calculation
+    [lengthInput, heightInput, widthInput].forEach(input => {
+        input.addEventListener('input', calculateWeight);
+    });
+
+    // Initial setup
+    toggleSections();
+</script>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'9d37b86eceff85d1',t:'MTc3MjAyNzkzNy4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+</html>
