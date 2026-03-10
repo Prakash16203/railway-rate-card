@@ -4,6 +4,31 @@
     <meta charset="UTF-8">
     <title>Admin Panel</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        .autocomplete-wrapper { position: relative; }
+        .autocomplete-list {
+            position: absolute;
+            z-index: 1000;
+            background: #fff;
+            border: 1px solid #ced4da;
+            border-top: none;
+            width: 100%;
+            max-height: 200px;
+            overflow-y: auto;
+            border-radius: 0 0 4px 4px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+        .autocomplete-list div {
+            padding: 8px 12px;
+            cursor: pointer;
+            font-size: 0.95rem;
+        }
+        .autocomplete-list div:hover,
+        .autocomplete-list div.active {
+            background-color: #0d6efd;
+            color: #fff;
+        }
+    </style>
 </head>
 <body class="bg-light">
 <div class="container mt-4">
@@ -25,7 +50,7 @@
         </li>
     </ul>
 
-    <!-- Messages -->
+    <!-- Flash Messages -->
     {% with messages = get_flashed_messages(with_categories=true) %}
         {% if messages %}
             {% for category, message in messages %}
@@ -40,44 +65,85 @@
         <div class="alert alert-success mt-3">{{ message }}</div>
     {% endif %}
 
+    <!-- ============================================================ -->
     <!-- Tab: Search -->
+    <!-- ============================================================ -->
     {% if tab == 'search' or tab is none %}
+
+    <!-- Pass origin stations to JS -->
+    <script>
+        const ALL_ORIGINS = {{ origin_stations | tojson }};
+    </script>
+
     <div class="card mb-4">
-        <div class="card-header">Station Rate & SLR Search</div>
+        <div class="card-header fw-semibold">Station Rate Search</div>
         <div class="card-body">
-            <form method="POST">
+            <form method="POST" id="searchRateForm">
                 <input type="hidden" name="search_rate" value="1">
-                <div class="row g-3">
-                    <div class="col">
-                        <label>From Station</label>
-                        <input type="text" name="from_station" class="form-control" placeholder="e.g. S1" required>
+                <div class="row g-3 align-items-end">
+
+                    <!-- FROM STATION with autocomplete -->
+                    <div class="col-md-5">
+                        <label class="form-label">From Station</label>
+                        <div class="autocomplete-wrapper">
+                            <input type="text" id="fromStationInput" name="from_station"
+                                   class="form-control" placeholder="Type to search..."
+                                   autocomplete="off"
+                                   value="{{ request.form.from_station or '' }}" required>
+                            <div class="autocomplete-list d-none" id="fromDropdown"></div>
+                        </div>
                     </div>
-                    <div class="col">
-                        <label>To Station</label>
-                        <input type="text" name="to_station" class="form-control" placeholder="e.g. S2" required>
+
+                    <!-- TO STATION dropdown (filtered dynamically) -->
+                    <div class="col-md-5">
+                        <label class="form-label">To Station</label>
+                        <select id="toStationSelect" name="to_station" class="form-select" required>
+                            <option value="">-- Select From Station first --</option>
+                        </select>
+                    </div>
+
+                    <div class="col-md-2">
+                        <button type="submit" class="btn btn-primary w-100">Search</button>
                     </div>
                 </div>
-                <button type="submit" class="btn btn-primary mt-3">Search</button>
             </form>
 
             {% if rate_result %}
             <div class="mt-4">
+                {% if rate_result.rate_card != "No rate found" %}
                 <div class="alert alert-info">
                     <strong>Rate Card:</strong> {{ rate_result.rate_card }}<br>
-                    <strong>SLR:</strong> {{ rate_result.slr or 'Not available' }}
+                    {% if rate_result.train_no and rate_result.train_no != 'N/A' %}
+                    <strong>Train No:</strong> {{ rate_result.train_no }}<br>
+                    {% endif %}
+                    {% if rate_result.vehicle_type and rate_result.vehicle_type != 'N/A' %}
+                    <strong>Vehicle Type:</strong> {{ rate_result.vehicle_type }}<br>
+                    {% endif %}
+                    {% if rate_result.days and rate_result.days != 'N/A' %}
+                    <strong>Days:</strong> {{ rate_result.days }}<br>
+                    {% endif %}
+                    {% if rate_result.slr %}
+                    <strong>Remark:</strong> {{ rate_result.slr }}
+                    {% endif %}
                 </div>
+                {% else %}
+                <div class="alert alert-warning">
+                    No rate card found for this route.
+                </div>
+                {% endif %}
             </div>
             {% endif %}
         </div>
     </div>
 
+    <!-- City Vendor Search -->
     <div class="card">
-        <div class="card-header">City-wise Vendor List</div>
+        <div class="card-header fw-semibold">City-wise Vendor List</div>
         <div class="card-body">
             <form method="POST">
                 <input type="hidden" name="search_city" value="1">
                 <div class="mb-3">
-                    <label>City</label>
+                    <label class="form-label">City</label>
                     <input type="text" name="city" class="form-control" placeholder="e.g. PUNE" required>
                 </div>
                 <button type="submit" class="btn btn-primary">Show Vendors</button>
@@ -95,9 +161,124 @@
             {% endif %}
         </div>
     </div>
-    {% endif %}
 
-    <!-- Tab: Vendors - COMPLETELY FIXED VERSION -->
+    <!-- ============================================================ -->
+    <!-- JS: Autocomplete for From Station + Dynamic To Station fill  -->
+    <!-- ============================================================ -->
+    <script>
+    (function () {
+        const fromInput    = document.getElementById('fromStationInput');
+        const fromDropdown = document.getElementById('fromDropdown');
+        const toSelect     = document.getElementById('toStationSelect');
+
+        // Pre-selected values after form submit
+        const preFrom = "{{ request.form.from_station or '' }}".trim().toUpperCase();
+        const preTo   = "{{ request.form.to_station or '' }}".trim().toUpperCase();
+
+        // ── Autocomplete for From Station ──────────────────────────
+        function showSuggestions(query) {
+            fromDropdown.innerHTML = '';
+            if (!query) { fromDropdown.classList.add('d-none'); return; }
+
+            const matches = ALL_ORIGINS.filter(s =>
+                s.toUpperCase().includes(query.toUpperCase())
+            );
+
+            if (matches.length === 0) { fromDropdown.classList.add('d-none'); return; }
+
+            matches.forEach(station => {
+                const div = document.createElement('div');
+                div.textContent = station;
+                div.addEventListener('mousedown', () => {
+                    fromInput.value = station;
+                    fromDropdown.classList.add('d-none');
+                    loadDestinations(station);
+                });
+                fromDropdown.appendChild(div);
+            });
+
+            fromDropdown.classList.remove('d-none');
+        }
+
+        fromInput.addEventListener('input', () => {
+            showSuggestions(fromInput.value.trim());
+        });
+
+        fromInput.addEventListener('blur', () => {
+            setTimeout(() => fromDropdown.classList.add('d-none'), 150);
+        });
+
+        fromInput.addEventListener('keydown', (e) => {
+            const items = fromDropdown.querySelectorAll('div');
+            const active = fromDropdown.querySelector('div.active');
+            let idx = Array.from(items).indexOf(active);
+
+            if (e.key === 'ArrowDown') {
+                e.preventDefault();
+                if (active) active.classList.remove('active');
+                items[(idx + 1) % items.length]?.classList.add('active');
+            } else if (e.key === 'ArrowUp') {
+                e.preventDefault();
+                if (active) active.classList.remove('active');
+                items[(idx - 1 + items.length) % items.length]?.classList.add('active');
+            } else if (e.key === 'Enter') {
+                if (active) {
+                    e.preventDefault();
+                    fromInput.value = active.textContent;
+                    fromDropdown.classList.add('d-none');
+                    loadDestinations(active.textContent);
+                }
+            }
+        });
+
+        // ── Load To Station destinations via API ───────────────────
+        function loadDestinations(origin, selectValue = '') {
+            toSelect.innerHTML = '<option value="">Loading...</option>';
+
+            fetch(`/api/destinations?origin=${encodeURIComponent(origin.toUpperCase())}`)
+                .then(r => r.json())
+                .then(destinations => {
+                    toSelect.innerHTML = '<option value="">-- Select Destination --</option>';
+                    if (destinations.length === 0) {
+                        toSelect.innerHTML = '<option value="">No destinations found</option>';
+                        return;
+                    }
+                    destinations.forEach(dest => {
+                        const opt = document.createElement('option');
+                        opt.value = dest;
+                        opt.textContent = dest;
+                        if (dest === selectValue) opt.selected = true;
+                        toSelect.appendChild(opt);
+                    });
+                })
+                .catch(() => {
+                    toSelect.innerHTML = '<option value="">Error loading destinations</option>';
+                });
+        }
+
+        // ── On page load: restore state if form was submitted ──────
+        if (preFrom) {
+            loadDestinations(preFrom, preTo);
+        }
+
+        // Also trigger load when user types a full match and leaves the field
+        fromInput.addEventListener('change', () => {
+            const val = fromInput.value.trim().toUpperCase();
+            if (ALL_ORIGINS.includes(val)) {
+                loadDestinations(val);
+            }
+        });
+
+    })();
+    </script>
+
+    {% endif %}
+    <!-- END Tab: Search -->
+
+
+    <!-- ============================================================ -->
+    <!-- Tab: Vendors -->
+    <!-- ============================================================ -->
     {% if tab == 'vendors' %}
     {% if action == 'list' or action is none %}
         <div class="card">
@@ -127,9 +308,9 @@
                             <td>{{ v.mobile or '' }}</td>
                             <td>{{ v.city or '' }}</td>
                             <td>
-                                <a href="{{ url_for('admin', tab='vendors', action='edit', edit_id=v.id) }}" 
+                                <a href="{{ url_for('admin', tab='vendors', action='edit', edit_id=v.id) }}"
                                    class="btn btn-sm btn-warning">Edit</a>
-                                <a href="{{ url_for('admin', tab='vendors', action='delete', edit_id=v.id) }}" 
+                                <a href="{{ url_for('admin', tab='vendors', action='delete', edit_id=v.id) }}"
                                    class="btn btn-sm btn-danger ms-1"
                                    onclick="return confirm('Are you sure?');">Delete</a>
                             </td>
@@ -143,7 +324,6 @@
             </div>
         </div>
     {% else %}
-        <!-- Add / Edit Vendor Form - FULLY FIXED -->
         <div class="card">
             <div class="card-header">
                 {% if action == 'edit' %}Edit Vendor{% else %}Add New Vendor{% endif %}
@@ -151,12 +331,10 @@
             <div class="card-body">
                 <form method="POST">
                     <input type="hidden" name="save_vendor" value="1">
-                    
-                    <!-- CRITICAL FIX 1: Add vendor ID hidden field for edit operations -->
                     {% if action == 'edit' and vendor and vendor.id %}
                     <input type="hidden" name="vendor_id" value="{{ vendor.id }}">
                     {% endif %}
-                    
+
                     <div class="row g-3">
                         <div class="col-md-6">
                             <label class="form-label">Account Name <span class="text-danger">*</span></label>
@@ -167,8 +345,7 @@
                             <select name="account_group_id" class="form-select">
                                 <option value="">-- Select Group --</option>
                                 {% for g in account_groups %}
-                                <!-- CRITICAL FIX 2: Compare with string value, not object -->
-                                <option value="{{ g.sr_no }}" 
+                                <option value="{{ g.sr_no }}"
                                         {% if vendor and vendor.account_group == g.group_name %}selected{% endif %}>
                                     {{ g.group_name }}
                                 </option>
@@ -235,8 +412,12 @@
         </div>
     {% endif %}
     {% endif %}
+    <!-- END Tab: Vendors -->
 
+
+    <!-- ============================================================ -->
     <!-- Tab: Rate Cards -->
+    <!-- ============================================================ -->
     {% if tab == 'ratecards' %}
     {% if action == 'list' or action is none %}
         <div class="card">
@@ -269,9 +450,9 @@
                                 <td>{{ r.vehicle_type or '' }}</td>
                                 <td>{{ r.days or '' }}</td>
                                 <td>
-                                    <a href="{{ url_for('admin', tab='ratecards', action='edit', edit_id=r.id) }}" 
+                                    <a href="{{ url_for('admin', tab='ratecards', action='edit', edit_id=r.id) }}"
                                        class="btn btn-sm btn-warning">Edit</a>
-                                    <a href="{{ url_for('admin', tab='ratecards', action='delete', edit_id=r.id) }}" 
+                                    <a href="{{ url_for('admin', tab='ratecards', action='delete', edit_id=r.id) }}"
                                        class="btn btn-sm btn-danger ms-1"
                                        onclick="return confirm('Are you sure?');">Delete</a>
                                 </td>
@@ -286,7 +467,6 @@
             </div>
         </div>
     {% else %}
-        <!-- Rate Card Form -->
         <div class="card">
             <div class="card-header">
                 {% if action == 'edit' %}Edit Rate Card{% else %}Add New Rate Card{% endif %}
@@ -294,11 +474,10 @@
             <div class="card-body">
                 <form method="POST">
                     <input type="hidden" name="save_ratecard" value="1">
-                    <!-- Rate card ID hidden field for edits -->
                     {% if action == 'edit' and ratecard and ratecard.id %}
                     <input type="hidden" name="ratecard_id" value="{{ ratecard.id }}">
                     {% endif %}
-                    
+
                     <div class="row g-3">
                         <div class="col-md-6">
                             <label class="form-label">Train No</label>
@@ -350,7 +529,7 @@
                             <select name="vendor_id" class="form-select">
                                 <option value="">-- Select Vendor --</option>
                                 {% for v in vendors %}
-                                <option value="{{ v.id }}" 
+                                <option value="{{ v.id }}"
                                         {% if ratecard and ratecard.vendor_id == v.id %}selected{% endif %}>
                                     {{ v.account_name }}
                                 </option>
@@ -390,8 +569,12 @@
         </div>
     {% endif %}
     {% endif %}
+    <!-- END Tab: Rate Cards -->
 
+
+    <!-- ============================================================ -->
     <!-- Tab: Settings -->
+    <!-- ============================================================ -->
     {% if tab == 'settings' %}
     <div class="card">
         <div class="card-header d-flex justify-content-between align-items-center">
@@ -400,7 +583,6 @@
         </div>
         <div class="card-body">
             {% if action in ['add', 'edit'] %}
-            <!-- Add / Edit Group Form -->
             <div class="card mb-4">
                 <div class="card-header">
                     {% if action == 'edit' %}Edit Account Group{% else %}Add New Account Group{% endif %}
@@ -408,15 +590,14 @@
                 <div class="card-body">
                     <form method="POST">
                         <input type="hidden" name="save_group" value="1">
-                        <!-- Group ID hidden field for edits -->
                         {% if action == 'edit' and group and group.sr_no %}
                         <input type="hidden" name="group_id" value="{{ group.sr_no }}">
                         {% endif %}
-                        
+
                         <div class="row g-3">
                             <div class="col-md-6">
                                 <label class="form-label">Group Name <span class="text-danger">*</span></label>
-                                <input type="text" name="group_name" class="form-control" 
+                                <input type="text" name="group_name" class="form-control"
                                        value="{{ group.group_name if group else '' }}" required>
                             </div>
                             <div class="col-12">
@@ -433,7 +614,6 @@
             </div>
             {% endif %}
 
-            <!-- List of Groups -->
             {% if account_groups %}
             <table class="table table-striped">
                 <thead>
@@ -451,9 +631,9 @@
                         <td>{{ g.group_name }}</td>
                         <td>{{ g.remark or '-' }}</td>
                         <td>
-                            <a href="{{ url_for('admin', tab='settings', action='edit', edit_id=g.sr_no) }}" 
+                            <a href="{{ url_for('admin', tab='settings', action='edit', edit_id=g.sr_no) }}"
                                class="btn btn-sm btn-warning">Edit</a>
-                            <a href="{{ url_for('admin', tab='settings', action='delete', edit_id=g.sr_no) }}" 
+                            <a href="{{ url_for('admin', tab='settings', action='delete', edit_id=g.sr_no) }}"
                                class="btn btn-sm btn-danger ms-1"
                                onclick="return confirm('Delete this group? Vendors using it will lose the association.');">
                                 Delete
@@ -469,6 +649,7 @@
         </div>
     </div>
     {% endif %}
+    <!-- END Tab: Settings -->
 
     <div class="text-center mt-5">
         <a href="{{ url_for('logout') }}" class="btn btn-outline-danger">Logout</a>
