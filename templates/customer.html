@@ -12,9 +12,40 @@
             font-size: 1.1rem;
             font-weight: 500;
         }
+        /* Autocomplete styles */
+        .autocomplete-wrapper { position: relative; }
+        .autocomplete-list {
+            position: absolute;
+            z-index: 1000;
+            background: #fff;
+            border: 1px solid #ced4da;
+            border-top: none;
+            width: 100%;
+            max-height: 200px;
+            overflow-y: auto;
+            border-radius: 0 0 4px 4px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+        .autocomplete-list div {
+            padding: 8px 12px;
+            cursor: pointer;
+            font-size: 0.95rem;
+        }
+        .autocomplete-list div:hover,
+        .autocomplete-list div.active {
+            background-color: #198754;
+            color: #fff;
+        }
     </style>
 </head>
 <body class="bg-light">
+
+<!-- Pass data from Flask to JS -->
+<script>
+    const ALL_ORIGINS = {{ origin_stations | tojson }};
+    const ALL_TRAINS  = {{ train_numbers | tojson }};
+</script>
+
 <div class="container mt-4">
     <h2 class="text-center mb-4">Welcome, Customer</h2>
     <div class="card">
@@ -45,15 +76,25 @@
                 <!-- Station Route section -->
                 <div id="routeSection" class="search-section row g-3
                      {% if search_type == 'train' or search_type == 'weight' %}d-none{% else %}active{% endif %}">
-                    <div class="col">
+
+                    <!-- FROM STATION with autocomplete -->
+                    <div class="col-md-6">
                         <label class="form-label">From Station</label>
-                        <input type="text" name="from_station" class="form-control" placeholder="e.g. S1" autocomplete="off"
-                               value="{{ request.form.from_station or '' }}">
+                        <div class="autocomplete-wrapper">
+                            <input type="text" id="fromStationInput" name="from_station"
+                                   class="form-control" placeholder="Type to search station..."
+                                   autocomplete="off"
+                                   value="{{ request.form.from_station or '' }}">
+                            <div class="autocomplete-list d-none" id="fromDropdown"></div>
+                        </div>
                     </div>
-                    <div class="col">
+
+                    <!-- TO STATION filtered dropdown -->
+                    <div class="col-md-6">
                         <label class="form-label">To Station</label>
-                        <input type="text" name="to_station" class="form-control" placeholder="e.g. S2" autocomplete="off"
-                               value="{{ request.form.to_station or '' }}">
+                        <select id="toStationSelect" name="to_station" class="form-select">
+                            <option value="">-- Select From Station first --</option>
+                        </select>
                     </div>
                 </div>
 
@@ -62,8 +103,13 @@
                      {% if search_type == 'train' %}active{% else %}d-none{% endif %}">
                     <div class="mb-3">
                         <label class="form-label">Train Number</label>
-                        <input type="text" name="train_number" class="form-control" placeholder="e.g. 1234" autocomplete="off"
-                               value="{{ request.form.train_number or '' }}">
+                        <div class="autocomplete-wrapper">
+                            <input type="text" id="trainInput" name="train_number"
+                                   class="form-control" placeholder="Type to search train number..."
+                                   autocomplete="off"
+                                   value="{{ request.form.train_number or '' }}">
+                            <div class="autocomplete-list d-none" id="trainDropdown"></div>
+                        </div>
                     </div>
                 </div>
 
@@ -118,71 +164,170 @@
 </div>
 
 <script>
-    // ───────────────────────────────────────────────
-    // Elements
-    // ───────────────────────────────────────────────
-    const routeSection   = document.getElementById('routeSection');
-    const trainSection   = document.getElementById('trainSection');
-    const weightSection  = document.getElementById('weightSection');
+(function () {
+    // ── Elements ──────────────────────────────────────────────
+    const routeSection    = document.getElementById('routeSection');
+    const trainSection    = document.getElementById('trainSection');
+    const weightSection   = document.getElementById('weightSection');
     const submitButtonDiv = document.getElementById('submitButtonDiv');
-    const radios = document.querySelectorAll('input[name="search_type"]');
+    const radios          = document.querySelectorAll('input[name="search_type"]');
 
     const lengthInput = document.getElementById('length');
     const heightInput = document.getElementById('height');
     const widthInput  = document.getElementById('width');
     const resultDiv   = document.getElementById('weightResult');
 
-    // ───────────────────────────────────────────────
-    // Toggle between search sections
-    // ───────────────────────────────────────────────
+    // Station route elements
+    const fromInput    = document.getElementById('fromStationInput');
+    const fromDropdown = document.getElementById('fromDropdown');
+    const toSelect     = document.getElementById('toStationSelect');
+
+    // Train number elements
+    const trainInput    = document.getElementById('trainInput');
+    const trainDropdown = document.getElementById('trainDropdown');
+
+    // Pre-selected values after form submit (restore state)
+    const preFrom  = "{{ request.form.from_station or '' }}".trim().toUpperCase();
+    const preTo    = "{{ request.form.to_station or '' }}".trim().toUpperCase();
+    const preTrain = "{{ request.form.train_number or '' }}".trim();
+
+    // ── Generic autocomplete builder ─────────────────────────
+    function buildAutocomplete(input, dropdown, dataList, onSelect) {
+        input.addEventListener('input', () => {
+            const query = input.value.trim();
+            dropdown.innerHTML = '';
+
+            if (!query) { dropdown.classList.add('d-none'); return; }
+
+            const matches = dataList.filter(s =>
+                s.toString().toUpperCase().includes(query.toUpperCase())
+            );
+
+            if (matches.length === 0) { dropdown.classList.add('d-none'); return; }
+
+            matches.forEach(item => {
+                const div = document.createElement('div');
+                div.textContent = item;
+                div.addEventListener('mousedown', () => {
+                    input.value = item;
+                    dropdown.classList.add('d-none');
+                    if (onSelect) onSelect(item);
+                });
+                dropdown.appendChild(div);
+            });
+
+            dropdown.classList.remove('d-none');
+        });
+
+        input.addEventListener('blur', () => {
+            setTimeout(() => dropdown.classList.add('d-none'), 150);
+        });
+
+        input.addEventListener('keydown', (e) => {
+            const items = dropdown.querySelectorAll('div');
+            const active = dropdown.querySelector('div.active');
+            let idx = Array.from(items).indexOf(active);
+
+            if (e.key === 'ArrowDown') {
+                e.preventDefault();
+                if (active) active.classList.remove('active');
+                items[(idx + 1) % items.length]?.classList.add('active');
+            } else if (e.key === 'ArrowUp') {
+                e.preventDefault();
+                if (active) active.classList.remove('active');
+                items[(idx - 1 + items.length) % items.length]?.classList.add('active');
+            } else if (e.key === 'Enter') {
+                if (active) {
+                    e.preventDefault();
+                    input.value = active.textContent;
+                    dropdown.classList.add('d-none');
+                    if (onSelect) onSelect(active.textContent);
+                }
+            }
+        });
+    }
+
+    // ── Load To Station destinations via API ──────────────────
+    function loadDestinations(origin, selectValue = '') {
+        toSelect.innerHTML = '<option value="">Loading...</option>';
+
+        fetch(`/api/destinations?origin=${encodeURIComponent(origin.toUpperCase())}`)
+            .then(r => r.json())
+            .then(destinations => {
+                toSelect.innerHTML = '<option value="">-- Select Destination --</option>';
+                if (destinations.length === 0) {
+                    toSelect.innerHTML = '<option value="">No destinations found</option>';
+                    return;
+                }
+                destinations.forEach(dest => {
+                    const opt = document.createElement('option');
+                    opt.value = dest;
+                    opt.textContent = dest;
+                    if (dest === selectValue) opt.selected = true;
+                    toSelect.appendChild(opt);
+                });
+            })
+            .catch(() => {
+                toSelect.innerHTML = '<option value="">Error loading destinations</option>';
+            });
+    }
+
+    // ── Setup autocompletes ───────────────────────────────────
+
+    // From Station autocomplete → triggers To Station load
+    buildAutocomplete(fromInput, fromDropdown, ALL_ORIGINS, (selected) => {
+        loadDestinations(selected);
+    });
+
+    // Also trigger on manual typed change + blur
+    fromInput.addEventListener('change', () => {
+        const val = fromInput.value.trim().toUpperCase();
+        if (ALL_ORIGINS.includes(val)) loadDestinations(val);
+    });
+
+    // Train Number autocomplete (no callback needed)
+    buildAutocomplete(trainInput, trainDropdown, ALL_TRAINS, null);
+
+    // ── Toggle between search sections ───────────────────────
     function toggleSections() {
         const isRoute  = document.getElementById('byRoute').checked;
         const isTrain  = document.getElementById('byTrain').checked;
-        // const isWeight = document.getElementById('byWeight').checked;
 
-        // Route
         if (isRoute) {
             routeSection.classList.remove('d-none');
             routeSection.classList.add('active');
             trainSection.classList.add('d-none');
             weightSection.classList.add('d-none');
             submitButtonDiv.classList.remove('d-none');
-            // clear others
-            document.querySelector('input[name="train_number"]').value = '';
+            trainInput.value = '';
             lengthInput.value = heightInput.value = widthInput.value = '';
             resultDiv.innerHTML = 'Volumetric weight will appear here...';
-        }
-        // Train
-        else if (isTrain) {
+
+        } else if (isTrain) {
             trainSection.classList.remove('d-none');
             trainSection.classList.add('active');
             routeSection.classList.add('d-none');
             weightSection.classList.add('d-none');
             submitButtonDiv.classList.remove('d-none');
-            // clear others
-            document.querySelector('input[name="from_station"]').value = '';
-            document.querySelector('input[name="to_station"]').value = '';
+            fromInput.value = '';
+            toSelect.innerHTML = '<option value="">-- Select From Station first --</option>';
             lengthInput.value = heightInput.value = widthInput.value = '';
             resultDiv.innerHTML = 'Volumetric weight will appear here...';
-        }
-        // Weight
-        else {
+
+        } else {
             weightSection.classList.remove('d-none');
             weightSection.classList.add('active');
             routeSection.classList.add('d-none');
             trainSection.classList.add('d-none');
             submitButtonDiv.classList.add('d-none');
-            // clear route/train
-            document.querySelector('input[name="from_station"]').value = '';
-            document.querySelector('input[name="to_station"]').value = '';
-            document.querySelector('input[name="train_number"]').value = '';
-            calculateWeight(); // show immediately if values exist
+            fromInput.value = '';
+            toSelect.innerHTML = '<option value="">-- Select From Station first --</option>';
+            trainInput.value = '';
+            calculateWeight();
         }
     }
 
-    // ───────────────────────────────────────────────
-    // Calculate volumetric weight
-    // ───────────────────────────────────────────────
+    // ── Volumetric weight calculator ─────────────────────────
     function calculateWeight() {
         const l = parseFloat(lengthInput.value) || 0;
         const h = parseFloat(heightInput.value) || 0;
@@ -196,28 +341,23 @@
 
         const volume = l * h * w;
         const weight = volume / 5000;
-        const rounded = Math.round(weight * 100) / 100; // 2 decimal places
+        const rounded = Math.round(weight * 100) / 100;
 
-        resultDiv.innerHTML = `
-            <strong>Volumetric weight:</strong> ${rounded} kg<br>
-        `;
+        resultDiv.innerHTML = `<strong>Volumetric weight:</strong> ${rounded} kg`;
         resultDiv.className = 'alert alert-primary';
     }
 
-    // ───────────────────────────────────────────────
-    // Event listeners
-    // ───────────────────────────────────────────────
-    radios.forEach(radio => {
-        radio.addEventListener('change', toggleSections);
-    });
+    // ── Restore state after form submit ──────────────────────
+    if (preFrom) loadDestinations(preFrom, preTo);
 
-    // Real-time calculation
-    [lengthInput, heightInput, widthInput].forEach(input => {
-        input.addEventListener('input', calculateWeight);
-    });
+    // ── Event listeners ───────────────────────────────────────
+    radios.forEach(radio => radio.addEventListener('change', toggleSections));
+    [lengthInput, heightInput, widthInput].forEach(input => input.addEventListener('input', calculateWeight));
 
     // Initial setup
     toggleSections();
+
+})();
 </script>
-<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'9d37b86eceff85d1',t:'MTc3MjAyNzkzNy4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+</body>
 </html>
