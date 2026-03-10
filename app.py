@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, url_for, session, flash
+from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify
 from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
 from dotenv import load_dotenv
@@ -45,6 +45,7 @@ app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
 db.init_app(app)
 migrate = Migrate(app, db)
 
+
 # ────────────────────────────────────────────────
 # LOGIN ROUTE
 # ────────────────────────────────────────────────
@@ -88,27 +89,58 @@ def customer():
             to_st = request.form.get("to_station", "").strip().upper()
 
             if not from_st or not to_st:
-                error = "Please enter both From and To stations."
+                error = "Please select both From and To stations."
             else:
-                rate = Rate.query.filter_by(from_station=from_st, to_station=to_st).first()
-                result = rate.rate_card if rate else "No rate found for this route."
+                # Queries RateCard table (linked from Admin Tab 3)
+                rc = RateCard.query.filter_by(origin_station=from_st, dest_station=to_st).first()
+                result = rc.rate_card if rc else "No rate found for this route."
 
         elif search_type == "train":
             train_num = request.form.get("train_number", "").strip()
             if not train_num:
-                error = "Please enter a train number."
+                error = "Please select a train number."
             else:
-                rate = Rate.query.filter_by(train_number=train_num).first()
-                result = rate.rate_card if rate else f"No rate found for train {train_num}."
+                # Train search uses RateCard table
+                rc = RateCard.query.filter_by(train_no=train_num).first()
+                result = rc.rate_card if rc else f"No rate found for train {train_num}."
         else:
             error = "Invalid search type."
+
+    # Unique origin stations from rate_cards for autocomplete
+    origin_stations = sorted(set(
+        rc.origin_station for rc in RateCard.query.with_entities(RateCard.origin_station).distinct().all()
+        if rc.origin_station
+    ))
+
+    # Unique train numbers from rate_cards for autocomplete
+    train_numbers = sorted(set(
+        rc.train_no for rc in RateCard.query.with_entities(RateCard.train_no).distinct().all()
+        if rc.train_no
+    ))
 
     return render_template(
         "customer.html",
         result=result,
         error=error,
-        search_type=search_type
+        search_type=search_type,
+        origin_stations=origin_stations,
+        train_numbers=train_numbers
     )
+
+
+# ────────────────────────────────────────────────
+# API: GET DESTINATIONS FOR A GIVEN ORIGIN
+# ────────────────────────────────────────────────
+@app.route("/api/destinations")
+def api_destinations():
+    """Returns list of destination stations for a given origin from rate_cards table."""
+    origin = request.args.get("origin", "").strip().upper()
+    if not origin:
+        return jsonify([])
+
+    rows = RateCard.query.filter_by(origin_station=origin).with_entities(RateCard.dest_station).distinct().all()
+    destinations = sorted([r.dest_station for r in rows if r.dest_station])
+    return jsonify(destinations)
 
 
 # ────────────────────────────────────────────────
@@ -127,31 +159,37 @@ def admin():
     vendors_list = None
     message = None
 
-    # RATE SEARCH
+    # ── Rate Search — uses RateCard table ──────────────────
     if request.method == "POST" and "search_rate" in request.form:
         from_st = request.form.get("from_station", "").strip().upper()
         to_st = request.form.get("to_station", "").strip().upper()
 
-        rate = Rate.query.filter_by(from_station=from_st, to_station=to_st).first()
+        rc = RateCard.query.filter_by(origin_station=from_st, dest_station=to_st).first()
 
-        if rate:
+        if rc:
             rate_result = {
-                "rate_card": rate.rate_card,
-                "slr": rate.slr or ""
+                "rate_card": rc.rate_card,
+                "train_no": rc.train_no or "N/A",
+                "vehicle_type": rc.vehicle_type or "N/A",
+                "days": rc.days or "N/A",
+                "slr": rc.remark or ""
             }
         else:
             rate_result = {
                 "rate_card": "No rate found",
+                "train_no": "",
+                "vehicle_type": "",
+                "days": "",
                 "slr": ""
             }
 
-    # CITY VENDOR SEARCH
+    # ── City Vendor Search ──────────────────────────────────
     if request.method == "POST" and "search_city" in request.form:
         city = request.form.get("city", "").strip().upper()
         found = Vendor.query.filter_by(city=city).all()
         vendors_list = [v.account_name for v in found] or ["No vendors found"]
 
-    # DELETE ACTION
+    # ── Delete Action ───────────────────────────────────────
     if action == "delete" and edit_id and edit_id.isdigit():
         idx = int(edit_id)
         if tab == "vendors":
@@ -178,19 +216,17 @@ def admin():
     vendor = None
     if tab == "vendors":
         if request.method == "POST" and "save_vendor" in request.form:
-            # Get the group name from the selected group ID
             account_group_id = request.form.get("account_group_id")
             account_group_name = None
-            
+
             if account_group_id:
                 group = AccountGroup.query.get(int(account_group_id))
                 if group:
                     account_group_name = group.group_name
 
-            # Prepare data for Vendor model (matches model fields exactly)
             data = {
                 "account_name": request.form.get("account_name", ""),
-                "account_group": account_group_name,  # ← using string name, not ID
+                "account_group": account_group_name,
                 "email": request.form.get("email", ""),
                 "mobile": request.form.get("mobile", ""),
                 "alt_mobile": request.form.get("alt_mobile", ""),
@@ -205,10 +241,9 @@ def admin():
                 "remark": request.form.get("remark", "")
             }
 
-            # Check if we're editing (has vendor_id in form) OR (action is edit with edit_id)
             vendor_id = request.form.get("vendor_id")
-            
-            if vendor_id:  # Edit existing
+
+            if vendor_id:
                 vendor = Vendor.query.get(int(vendor_id))
                 if vendor:
                     for k, v in data.items():
@@ -217,8 +252,8 @@ def admin():
                     flash("Vendor updated successfully!", "success")
                 else:
                     flash("Vendor not found!", "error")
-                    
-            elif action == "edit" and edit_id:  # Alternative edit detection
+
+            elif action == "edit" and edit_id:
                 vendor = Vendor.query.get(int(edit_id))
                 if vendor:
                     for k, v in data.items():
@@ -227,8 +262,8 @@ def admin():
                     flash("Vendor updated successfully!", "success")
                 else:
                     flash("Vendor not found!", "error")
-                    
-            else:  # Add new
+
+            else:
                 new_vendor = Vendor(**data)
                 db.session.add(new_vendor)
                 db.session.commit()
@@ -236,7 +271,6 @@ def admin():
 
             return redirect(url_for("admin", tab="vendors"))
 
-        # Get vendor for editing
         if action == "edit" and edit_id:
             vendor = Vendor.query.get(int(edit_id))
 
@@ -319,6 +353,12 @@ def admin():
     ratecards = RateCard.query.all()
     account_groups = AccountGroup.query.order_by(AccountGroup.group_name).all()
 
+    # Unique origin stations for admin search tab dropdown
+    origin_stations = sorted(set(
+        rc.origin_station for rc in RateCard.query.with_entities(RateCard.origin_station).distinct().all()
+        if rc.origin_station
+    ))
+
     return render_template(
         "admin.html",
         tab=tab,
@@ -330,6 +370,7 @@ def admin():
         rate_result=rate_result,
         vendors_list=vendors_list,
         message=message,
+        origin_stations=origin_stations,
         vendor=vendor if tab == "vendors" and action in ["add", "edit"] else None,
         ratecard=ratecard if tab == "ratecards" and action in ["add", "edit"] else None,
         group=group if tab == "settings" and action == "edit" else None
