@@ -4,6 +4,9 @@ from flask_migrate import Migrate
 from dotenv import load_dotenv
 import os
 
+print(os.path.exists('static/Singh_logo.png'))  # Should print True
+
+
 # Import models (db is defined here, but initialized later)
 from models import db, User, Rate, Vendor, RateCard, AccountGroup
 # ────────────────────────────────────────────────
@@ -392,5 +395,6 @@ def logout():
 if __name__ == "__main__":
     port = int(os.getenv("PORT", 5000))
     app.run(host="0.0.0.0", port=port, debug=False)
+
 
 
