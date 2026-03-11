@@ -6,7 +6,8 @@ import os
 
 # Import models (db is defined here, but initialized later)
 from models import db, User, Rate, Vendor, RateCard, AccountGroup
-
+import os
+print(os.path.exists('static/Singh_logo.png'))  # Should print True
 # ────────────────────────────────────────────────
 # Load environment variables (harmless even without .env on Railway)
 # ────────────────────────────────────────────────
@@ -393,3 +394,4 @@ def logout():
 if __name__ == "__main__":
     port = int(os.getenv("PORT", 5000))
     app.run(host="0.0.0.0", port=port, debug=False)
+
