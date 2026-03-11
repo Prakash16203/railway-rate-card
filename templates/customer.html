@@ -2,361 +2,381 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Customer - Rate Card</title>
+    <title>Singh Railway Transport - Customer Portal</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet">
     <style>
-        .search-section { display: none; }
-        .search-section.active { display: block; }
-        #weightResult {
-            min-height: 60px;
-            font-size: 1.1rem;
-            font-weight: 500;
+        * { box-sizing: border-box; }
+        body {
+            min-height: 100vh;
+            background: linear-gradient(135deg, #050d1a 0%, #0a1628 50%, #0f2044 100%);
+            font-family: 'Segoe UI', sans-serif; color: #fff;
         }
-        /* Autocomplete styles */
+        body::before {
+            content: ''; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background-image: linear-gradient(rgba(234,179,8,0.05) 1px, transparent 1px), linear-gradient(90deg, rgba(234,179,8,0.05) 1px, transparent 1px);
+            background-size: 50px 50px; animation: grid-move 25s linear infinite; pointer-events: none; z-index: 0;
+        }
+        @keyframes grid-move { 0% { background-position: 0 0; } 100% { background-position: 50px 50px; } }
+
+        /* Header */
+        .top-header {
+            position: relative; z-index: 100;
+            background: rgba(5,13,26,0.55); backdrop-filter: blur(12px);
+            border-bottom: 1px solid rgba(234,179,8,0.3);
+            padding: 12px 24px; display: flex; align-items: center; justify-content: space-between;
+            animation: slide-down 0.5s ease both;
+        }
+        @keyframes slide-down { from { transform: translateY(-60px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+        .header-brand { display: flex; align-items: center; gap: 12px; }
+        .header-logo {
+            width: 44px; height: 44px; border-radius: 50%;
+            object-fit: contain; background: #fff; padding: 2px;
+            border: 2px solid #eab308; animation: logo-pulse 2.5s ease infinite;
+        }
+        @keyframes logo-pulse { 0%,100% { box-shadow: 0 0 0 0 rgba(234,179,8,0.4); } 50% { box-shadow: 0 0 0 8px rgba(249,115,22,0); } }
+        .header-title {
+            font-size: 1.1rem; font-weight: 700;
+            background: linear-gradient(90deg, #2563eb, #3b82f6, #eab308);
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+        }
+        .header-subtitle { font-size: 0.7rem; color: rgba(255,255,255,0.4); letter-spacing: 2px; text-transform: uppercase; }
+        .badge-user { background: rgba(234,179,8,0.15); border: 1px solid rgba(234,179,8,0.5); color: #eab308; border-radius: 20px; padding: 5px 14px; font-size: 0.8rem; font-weight: 600; }
+        .btn-logout { background: transparent; border: 1px solid rgba(220,38,38,0.5); color: #fca5a5; border-radius: 8px; padding: 6px 14px; font-size: 0.82rem; text-decoration: none; transition: all 0.3s; margin-left: 10px; }
+        .btn-logout:hover { background: rgba(220,38,38,0.2); color: #fff; border-color: #ef4444; }
+
+        /* Content */
+        .main-content {
+            position: relative; z-index: 10; padding: 30px 20px; max-width: 800px; margin: 0 auto;
+            animation: fade-up 0.6s ease 0.2s both;
+        }
+        @keyframes fade-up { from { opacity: 0; transform: translateY(30px); } to { opacity: 1; transform: translateY(0); } }
+
+        /* Card */
+        .main-card {
+            background: rgba(255,255,255,0.04); backdrop-filter: blur(16px);
+            border: 1px solid rgba(234,179,8,0.2); border-radius: 20px; overflow: hidden;
+            box-shadow: 0 20px 60px rgba(5,13,26,0.55), 0 0 40px rgba(232,69,10,0.05);
+        }
+        .card-top-bar {
+            background: linear-gradient(135deg, rgba(234,179,8,0.8), rgba(59,130,246,0.7));
+            padding: 16px 24px; display: flex; align-items: center; gap: 10px;
+            font-size: 1rem; font-weight: 600; letter-spacing: 0.5px;
+        }
+        .card-body-custom { padding: 28px; }
+
+        /* Toggle pills */
+        .search-toggle {
+            display: flex; gap: 8px; margin-bottom: 28px;
+            background: rgba(5,13,26,0.4); border: 1px solid rgba(59,130,246,0.15);
+            border-radius: 12px; padding: 6px; flex-wrap: wrap;
+        }
+        .toggle-pill { flex: 1; }
+        .toggle-pill input[type="radio"] { display: none; }
+        .toggle-pill label {
+            display: flex; align-items: center; justify-content: center; gap: 7px;
+            padding: 9px 16px; border-radius: 8px; cursor: pointer;
+            font-size: 0.88rem; font-weight: 600; color: rgba(255,255,255,0.5);
+            transition: all 0.3s ease; white-space: nowrap; user-select: none; width: 100%;
+        }
+        .toggle-pill input:checked + label {
+            background: linear-gradient(135deg, #2563eb, #3b82f6); color: #fff;
+            box-shadow: 0 4px 15px rgba(234,179,8,0.4); transform: translateY(-1px);
+        }
+        .toggle-pill label:hover { color: rgba(255,255,255,0.8); background: rgba(234,179,8,0.12); }
+
+        /* Section visibility */
+        .search-section { display: none; }
+        .search-section.active { display: block; animation: section-in 0.3s ease both; }
+        @keyframes section-in { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+        /* Form elements */
+        .form-label-custom { color: rgba(255,255,255,0.6); font-size: 0.78rem; font-weight: 600; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 6px; display: block; }
+        .form-control-custom, .form-select-custom {
+            width: 100%; background: rgba(255,255,255,0.06);
+            border: 1px solid rgba(234,179,8,0.2); border-radius: 10px; color: #fff;
+            padding: 11px 14px; font-size: 0.93rem; transition: all 0.3s; outline: none;
+        }
+        .form-control-custom::placeholder { color: rgba(255,255,255,0.25); }
+        .form-control-custom:focus, .form-select-custom:focus {
+            border-color: #3b82f6; background: rgba(255,255,255,0.09);
+            box-shadow: 0 0 0 3px rgba(234,179,8,0.2); color: #fff;
+        }
+        .form-select-custom option { background: #050d1a; color: #fff; }
+
+        /* Autocomplete */
         .autocomplete-wrapper { position: relative; }
         .autocomplete-list {
-            position: absolute;
-            z-index: 1000;
-            background: #fff;
-            border: 1px solid #ced4da;
-            border-top: none;
-            width: 100%;
-            max-height: 200px;
-            overflow-y: auto;
-            border-radius: 0 0 4px 4px;
-            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+            position: absolute; z-index: 1000; background: #0a1e3d;
+            border: 1px solid rgba(234,179,8,0.4); border-top: none;
+            width: 100%; max-height: 200px; overflow-y: auto;
+            border-radius: 0 0 10px 10px; box-shadow: 0 8px 20px rgba(5,13,26,0.55);
         }
-        .autocomplete-list div {
-            padding: 8px 12px;
-            cursor: pointer;
-            font-size: 0.95rem;
+        .autocomplete-list div { padding: 9px 14px; cursor: pointer; font-size: 0.9rem; color: rgba(255,255,255,0.8); border-bottom: 1px solid rgba(255,255,255,0.05); transition: background 0.2s; }
+        .autocomplete-list div:hover, .autocomplete-list div.active { background: linear-gradient(90deg, rgba(234,179,8,0.5), rgba(234,179,8,0.4)); color: #fff; }
+
+        /* Search button */
+        .btn-search {
+            background: linear-gradient(135deg, #1d4ed8, #eab308); border: none; border-radius: 10px; color: #fff;
+            padding: 11px 28px; font-size: 0.92rem; font-weight: 700; cursor: pointer; transition: all 0.3s;
+            margin-top: 16px; box-shadow: 0 4px 15px rgba(234,179,8,0.35);
         }
-        .autocomplete-list div:hover,
-        .autocomplete-list div.active {
-            background-color: #198754;
-            color: #fff;
+        .btn-search:hover { transform: translateY(-2px); box-shadow: 0 8px 25px rgba(232,69,10,0.55); }
+
+        /* Weight result */
+        .weight-result {
+            margin-top: 16px; padding: 16px 20px;
+            background: rgba(5,13,26,0.4); border: 1px solid rgba(234,179,8,0.2);
+            border-radius: 12px; color: rgba(255,255,255,0.6); font-size: 0.95rem;
+            min-height: 56px; transition: all 0.4s ease;
         }
+        .weight-result.has-value { background: rgba(234,179,8,0.1); border-color: rgba(59,130,246,0.5); color: #fff; }
+
+        /* Results */
+        .result-box {
+            margin-top: 24px; padding: 18px 22px;
+            background: rgba(59,130,246,0.08); border: 1px solid rgba(234,179,8,0.4);
+            border-left: 4px solid #eab308; border-radius: 14px;
+            animation: result-in 0.5s cubic-bezier(0.34,1.56,0.64,1) both; line-height: 1.9;
+        }
+        @keyframes result-in { from { opacity: 0; transform: scale(0.95) translateY(10px); } to { opacity: 1; transform: scale(1) translateY(0); } }
+        .result-box strong { color: #eab308; }
+        .error-box { margin-top: 20px; padding: 14px 18px; background: rgba(220,38,38,0.1); border: 1px solid rgba(220,38,38,0.35); border-radius: 12px; color: #fca5a5; font-size: 0.9rem; }
     </style>
 </head>
-<body class="bg-light">
+<body>
 
-<!-- Pass data from Flask to JS -->
+<!-- Flask data -->
 <script>
     const ALL_ORIGINS = {{ origin_stations | tojson }};
     const ALL_TRAINS  = {{ train_numbers | tojson }};
 </script>
 
-<div class="container mt-4">
-    <h2 class="text-center mb-4">Welcome, Customer</h2>
-    <div class="card">
-        <div class="card-header">Find Rate / Calculate Weight</div>
-        <div class="card-body">
+<!-- Header -->
+<div class="top-header">
+    <div class="header-brand">
+        <img src="{{ url_for('static', filename='Singh_logo.PNG') }}" alt="Logo" class="header-logo">
+        <div>
+            <div class="header-title">Singh Transport</div>
+            <div class="header-subtitle">Rate Card System</div>
+        </div>
+    </div>
+    <div class="d-flex align-items-center gap-2">
+        <span class="badge-user"><i class="fas fa-user-circle me-1"></i>Customer</span>
+        <a href="{{ url_for('logout') }}" class="btn-logout"><i class="fas fa-sign-out-alt me-1"></i>Logout</a>
+    </div>
+</div>
 
+<div class="main-content">
+    <div class="main-card">
+        <div class="card-top-bar"><i class="fas fa-search"></i> Find Rate / Calculate Weight</div>
+        <div class="card-body-custom">
             <form method="POST" id="rateForm">
-                <!-- Choose search method -->
-                <div class="mb-4">
-                    <label class="form-label fw-bold">Search / Calculate By:</label>
-                    <div class="form-check form-check-inline">
-                        <input class="form-check-input" type="radio" name="search_type" id="byRoute" value="route"
+
+                <!-- Toggle Pills -->
+                <div class="search-toggle">
+                    <div class="toggle-pill">
+                        <input type="radio" name="search_type" id="byRoute" value="route"
                                {% if search_type != 'train' and search_type != 'weight' %}checked{% endif %}>
-                        <label class="form-check-label" for="byRoute">Station Route</label>
+                        <label for="byRoute"><i class="fas fa-map-marker-alt"></i> Station Route</label>
                     </div>
-                    <div class="form-check form-check-inline">
-                        <input class="form-check-input" type="radio" name="search_type" id="byTrain" value="train"
+                    <div class="toggle-pill">
+                        <input type="radio" name="search_type" id="byTrain" value="train"
                                {% if search_type == 'train' %}checked{% endif %}>
-                        <label class="form-check-label" for="byTrain">Train Number</label>
+                        <label for="byTrain"><i class="fas fa-train"></i> Train Number</label>
                     </div>
-                    <div class="form-check form-check-inline">
-                        <input class="form-check-input" type="radio" name="search_type" id="byWeight" value="weight"
+                    <div class="toggle-pill">
+                        <input type="radio" name="search_type" id="byWeight" value="weight"
                                {% if search_type == 'weight' %}checked{% endif %}>
-                        <label class="form-check-label" for="byWeight">Weight Calculated</label>
+                        <label for="byWeight"><i class="fas fa-weight-hanging"></i> Weight Calculator</label>
                     </div>
                 </div>
 
-                <!-- Station Route section -->
-                <div id="routeSection" class="search-section row g-3
-                     {% if search_type == 'train' or search_type == 'weight' %}d-none{% else %}active{% endif %}">
-
-                    <!-- FROM STATION with autocomplete -->
-                    <div class="col-md-6">
-                        <label class="form-label">From Station</label>
-                        <div class="autocomplete-wrapper">
-                            <input type="text" id="fromStationInput" name="from_station"
-                                   class="form-control" placeholder="Type to search station..."
-                                   autocomplete="off"
-                                   value="{{ request.form.from_station or '' }}">
-                            <div class="autocomplete-list d-none" id="fromDropdown"></div>
+                <!-- Station Route -->
+                <div id="routeSection" class="search-section {% if search_type != 'train' and search_type != 'weight' %}active{% endif %}">
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label-custom">From Station</label>
+                            <div class="autocomplete-wrapper">
+                                <input type="text" id="fromStationInput" name="from_station"
+                                       class="form-control-custom" placeholder="Type to search station..."
+                                       autocomplete="off" value="{{ request.form.from_station or '' }}">
+                                <div class="autocomplete-list d-none" id="fromDropdown"></div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label-custom">To Station</label>
+                            <select id="toStationSelect" name="to_station" class="form-select-custom">
+                                <option value="">-- Select From Station first --</option>
+                            </select>
                         </div>
                     </div>
-
-                    <!-- TO STATION filtered dropdown -->
-                    <div class="col-md-6">
-                        <label class="form-label">To Station</label>
-                        <select id="toStationSelect" name="to_station" class="form-select">
-                            <option value="">-- Select From Station first --</option>
-                        </select>
-                    </div>
                 </div>
 
-                <!-- Train Number section -->
-                <div id="trainSection" class="search-section
-                     {% if search_type == 'train' %}active{% else %}d-none{% endif %}">
-                    <div class="mb-3">
-                        <label class="form-label">Train Number</label>
+                <!-- Train Number -->
+                <div id="trainSection" class="search-section {% if search_type == 'train' %}active{% endif %}">
+                    <div class="col-md-6">
+                        <label class="form-label-custom">Train Number</label>
                         <div class="autocomplete-wrapper">
                             <input type="text" id="trainInput" name="train_number"
-                                   class="form-control" placeholder="Type to search train number..."
-                                   autocomplete="off"
-                                   value="{{ request.form.train_number or '' }}">
+                                   class="form-control-custom" placeholder="Type to search train number..."
+                                   autocomplete="off" value="{{ request.form.train_number or '' }}">
                             <div class="autocomplete-list d-none" id="trainDropdown"></div>
                         </div>
                     </div>
                 </div>
 
-                <!-- Weight Calculated section -->
-                <div id="weightSection" class="search-section
-                     {% if search_type == 'weight' %}active{% else %}d-none{% endif %}">
+                <!-- Weight Calculator -->
+                <div id="weightSection" class="search-section {% if search_type == 'weight' %}active{% endif %}">
                     <div class="row g-3">
                         <div class="col-md-4">
-                            <label class="form-label">Length (cm)</label>
-                            <input type="number" id="length" class="form-control" placeholder="e.g. 60" min="0" step="0.1">
+                            <label class="form-label-custom">Length (cm)</label>
+                            <input type="number" id="length" class="form-control-custom" placeholder="e.g. 60" min="0" step="0.1">
                         </div>
                         <div class="col-md-4">
-                            <label class="form-label">Height (cm)</label>
-                            <input type="number" id="height" class="form-control" placeholder="e.g. 40" min="0" step="0.1">
+                            <label class="form-label-custom">Height (cm)</label>
+                            <input type="number" id="height" class="form-control-custom" placeholder="e.g. 40" min="0" step="0.1">
                         </div>
                         <div class="col-md-4">
-                            <label class="form-label">Width (cm)</label>
-                            <input type="number" id="width" class="form-control" placeholder="e.g. 30" min="0" step="0.1">
+                            <label class="form-label-custom">Width (cm)</label>
+                            <input type="number" id="width" class="form-control-custom" placeholder="e.g. 30" min="0" step="0.1">
                         </div>
                     </div>
-                    <div class="mt-4">
-                        <div class="alert alert-secondary" id="weightResult">
-                            Volumetric weight will appear here...
-                        </div>
+                    <div class="weight-result" id="weightResult">
+                        <i class="fas fa-calculator me-2" style="opacity:0.4;"></i>Volumetric weight will appear here...
                     </div>
                 </div>
 
-                <!-- Submit button only for route/train searches -->
-                <div id="submitButtonDiv" {% if search_type == 'weight' %}class="d-none"{% endif %}>
-                    <button type="submit" class="btn btn-success mt-3">Search Rate</button>
+                <!-- Submit -->
+                <div id="submitButtonDiv" {% if search_type == 'weight' %}style="display:none;"{% endif %}>
+                    <button type="submit" class="btn-search"><i class="fas fa-search me-2"></i>Search Rate</button>
                 </div>
             </form>
 
             {% if result %}
-            <div class="alert alert-info mt-4">
-                <strong>Rate Card:</strong> {{ result }}
+            <div class="result-box">
+                <div style="font-size:0.75rem;color:#3b82f6;font-weight:700;letter-spacing:2px;text-transform:uppercase;margin-bottom:6px;"><i class="fas fa-tag me-1"></i>Rate Card Result</div>
+                <div style="font-size:1.1rem;font-weight:600;">{{ result }}</div>
             </div>
             {% endif %}
 
             {% if error %}
-            <div class="alert alert-warning mt-4">
-                {{ error }}
-            </div>
+            <div class="error-box"><i class="fas fa-exclamation-circle me-2"></i>{{ error }}</div>
             {% endif %}
-
         </div>
-    </div>
-
-    <div class="text-center mt-4">
-        <a href="{{ url_for('logout') }}" class="btn btn-outline-danger">Logout</a>
     </div>
 </div>
 
 <script>
 (function () {
-    // ── Elements ──────────────────────────────────────────────
     const routeSection    = document.getElementById('routeSection');
     const trainSection    = document.getElementById('trainSection');
     const weightSection   = document.getElementById('weightSection');
     const submitButtonDiv = document.getElementById('submitButtonDiv');
     const radios          = document.querySelectorAll('input[name="search_type"]');
-
     const lengthInput = document.getElementById('length');
     const heightInput = document.getElementById('height');
     const widthInput  = document.getElementById('width');
     const resultDiv   = document.getElementById('weightResult');
-
-    // Station route elements
     const fromInput    = document.getElementById('fromStationInput');
     const fromDropdown = document.getElementById('fromDropdown');
     const toSelect     = document.getElementById('toStationSelect');
-
-    // Train number elements
     const trainInput    = document.getElementById('trainInput');
     const trainDropdown = document.getElementById('trainDropdown');
+    const preFrom = "{{ request.form.from_station or '' }}".trim().toUpperCase();
+    const preTo   = "{{ request.form.to_station or '' }}".trim().toUpperCase();
 
-    // Pre-selected values after form submit (restore state)
-    const preFrom  = "{{ request.form.from_station or '' }}".trim().toUpperCase();
-    const preTo    = "{{ request.form.to_station or '' }}".trim().toUpperCase();
-    const preTrain = "{{ request.form.train_number or '' }}".trim();
-
-    // ── Generic autocomplete builder ─────────────────────────
     function buildAutocomplete(input, dropdown, dataList, onSelect) {
         input.addEventListener('input', () => {
             const query = input.value.trim();
             dropdown.innerHTML = '';
-
             if (!query) { dropdown.classList.add('d-none'); return; }
-
-            const matches = dataList.filter(s =>
-                s.toString().toUpperCase().includes(query.toUpperCase())
-            );
-
-            if (matches.length === 0) { dropdown.classList.add('d-none'); return; }
-
+            const matches = dataList.filter(s => s.toString().toUpperCase().includes(query.toUpperCase()));
+            if (!matches.length) { dropdown.classList.add('d-none'); return; }
             matches.forEach(item => {
                 const div = document.createElement('div');
                 div.textContent = item;
-                div.addEventListener('mousedown', () => {
-                    input.value = item;
-                    dropdown.classList.add('d-none');
-                    if (onSelect) onSelect(item);
-                });
+                div.addEventListener('mousedown', () => { input.value = item; dropdown.classList.add('d-none'); if (onSelect) onSelect(item); });
                 dropdown.appendChild(div);
             });
-
             dropdown.classList.remove('d-none');
         });
-
-        input.addEventListener('blur', () => {
-            setTimeout(() => dropdown.classList.add('d-none'), 150);
-        });
-
+        input.addEventListener('blur', () => setTimeout(() => dropdown.classList.add('d-none'), 150));
         input.addEventListener('keydown', (e) => {
             const items = dropdown.querySelectorAll('div');
             const active = dropdown.querySelector('div.active');
             let idx = Array.from(items).indexOf(active);
-
-            if (e.key === 'ArrowDown') {
-                e.preventDefault();
-                if (active) active.classList.remove('active');
-                items[(idx + 1) % items.length]?.classList.add('active');
-            } else if (e.key === 'ArrowUp') {
-                e.preventDefault();
-                if (active) active.classList.remove('active');
-                items[(idx - 1 + items.length) % items.length]?.classList.add('active');
-            } else if (e.key === 'Enter') {
-                if (active) {
-                    e.preventDefault();
-                    input.value = active.textContent;
-                    dropdown.classList.add('d-none');
-                    if (onSelect) onSelect(active.textContent);
-                }
-            }
+            if (e.key === 'ArrowDown') { e.preventDefault(); if (active) active.classList.remove('active'); items[(idx+1)%items.length]?.classList.add('active'); }
+            else if (e.key === 'ArrowUp') { e.preventDefault(); if (active) active.classList.remove('active'); items[(idx-1+items.length)%items.length]?.classList.add('active'); }
+            else if (e.key === 'Enter' && active) { e.preventDefault(); input.value = active.textContent; dropdown.classList.add('d-none'); if (onSelect) onSelect(active.textContent); }
         });
     }
 
-    // ── Load To Station destinations via API ──────────────────
     function loadDestinations(origin, selectValue = '') {
         toSelect.innerHTML = '<option value="">Loading...</option>';
-
         fetch(`/api/destinations?origin=${encodeURIComponent(origin.toUpperCase())}`)
             .then(r => r.json())
             .then(destinations => {
                 toSelect.innerHTML = '<option value="">-- Select Destination --</option>';
-                if (destinations.length === 0) {
-                    toSelect.innerHTML = '<option value="">No destinations found</option>';
-                    return;
-                }
+                if (!destinations.length) { toSelect.innerHTML = '<option value="">No destinations found</option>'; return; }
                 destinations.forEach(dest => {
                     const opt = document.createElement('option');
-                    opt.value = dest;
-                    opt.textContent = dest;
+                    opt.value = dest; opt.textContent = dest;
                     if (dest === selectValue) opt.selected = true;
                     toSelect.appendChild(opt);
                 });
             })
-            .catch(() => {
-                toSelect.innerHTML = '<option value="">Error loading destinations</option>';
-            });
+            .catch(() => { toSelect.innerHTML = '<option value="">Error loading</option>'; });
     }
 
-    // ── Setup autocompletes ───────────────────────────────────
-
-    // From Station autocomplete → triggers To Station load
-    buildAutocomplete(fromInput, fromDropdown, ALL_ORIGINS, (selected) => {
-        loadDestinations(selected);
-    });
-
-    // Also trigger on manual typed change + blur
-    fromInput.addEventListener('change', () => {
-        const val = fromInput.value.trim().toUpperCase();
-        if (ALL_ORIGINS.includes(val)) loadDestinations(val);
-    });
-
-    // Train Number autocomplete (no callback needed)
+    buildAutocomplete(fromInput, fromDropdown, ALL_ORIGINS, (s) => loadDestinations(s));
+    fromInput.addEventListener('change', () => { const v = fromInput.value.trim().toUpperCase(); if (ALL_ORIGINS.includes(v)) loadDestinations(v); });
     buildAutocomplete(trainInput, trainDropdown, ALL_TRAINS, null);
 
-    // ── Toggle between search sections ───────────────────────
+    function showSection(sec) {
+        [routeSection, trainSection, weightSection].forEach(s => { if(s) s.classList.remove('active'); });
+        if (sec) sec.classList.add('active');
+    }
+
     function toggleSections() {
-        const isRoute  = document.getElementById('byRoute').checked;
-        const isTrain  = document.getElementById('byTrain').checked;
-
+        const isRoute = document.getElementById('byRoute').checked;
+        const isTrain = document.getElementById('byTrain').checked;
         if (isRoute) {
-            routeSection.classList.remove('d-none');
-            routeSection.classList.add('active');
-            trainSection.classList.add('d-none');
-            weightSection.classList.add('d-none');
-            submitButtonDiv.classList.remove('d-none');
-            trainInput.value = '';
+            showSection(routeSection); submitButtonDiv.style.display = '';
+            if(trainInput) trainInput.value = '';
             lengthInput.value = heightInput.value = widthInput.value = '';
-            resultDiv.innerHTML = 'Volumetric weight will appear here...';
-
         } else if (isTrain) {
-            trainSection.classList.remove('d-none');
-            trainSection.classList.add('active');
-            routeSection.classList.add('d-none');
-            weightSection.classList.add('d-none');
-            submitButtonDiv.classList.remove('d-none');
-            fromInput.value = '';
+            showSection(trainSection); submitButtonDiv.style.display = '';
+            if(fromInput) fromInput.value = '';
             toSelect.innerHTML = '<option value="">-- Select From Station first --</option>';
             lengthInput.value = heightInput.value = widthInput.value = '';
-            resultDiv.innerHTML = 'Volumetric weight will appear here...';
-
         } else {
-            weightSection.classList.remove('d-none');
-            weightSection.classList.add('active');
-            routeSection.classList.add('d-none');
-            trainSection.classList.add('d-none');
-            submitButtonDiv.classList.add('d-none');
-            fromInput.value = '';
+            showSection(weightSection); submitButtonDiv.style.display = 'none';
+            if(fromInput) fromInput.value = '';
             toSelect.innerHTML = '<option value="">-- Select From Station first --</option>';
-            trainInput.value = '';
+            if(trainInput) trainInput.value = '';
             calculateWeight();
         }
     }
 
-    // ── Volumetric weight calculator ─────────────────────────
     function calculateWeight() {
-        const l = parseFloat(lengthInput.value) || 0;
-        const h = parseFloat(heightInput.value) || 0;
-        const w = parseFloat(widthInput.value)  || 0;
-
-        if (l === 0 || h === 0 || w === 0) {
-            resultDiv.innerHTML = 'Volumetric weight will appear here...';
-            resultDiv.className = 'alert alert-secondary';
-            return;
+        const l = parseFloat(lengthInput.value)||0;
+        const h = parseFloat(heightInput.value)||0;
+        const w = parseFloat(widthInput.value)||0;
+        if (!l||!h||!w) {
+            resultDiv.innerHTML = '<i class="fas fa-calculator me-2" style="opacity:0.4;"></i>Volumetric weight will appear here...';
+            resultDiv.classList.remove('has-value');
+        } else {
+            const kg = Math.round((l*h*w/5000)*100)/100;
+            resultDiv.innerHTML = `<i class="fas fa-weight-hanging me-2" style="color:#eab308;"></i><strong>Volumetric Weight: ${kg} kg</strong>`;
+            resultDiv.classList.add('has-value');
         }
-
-        const volume = l * h * w;
-        const weight = volume / 5000;
-        const rounded = Math.round(weight * 100) / 100;
-
-        resultDiv.innerHTML = `<strong>Volumetric weight:</strong> ${rounded} kg`;
-        resultDiv.className = 'alert alert-primary';
     }
 
-    // ── Restore state after form submit ──────────────────────
     if (preFrom) loadDestinations(preFrom, preTo);
-
-    // ── Event listeners ───────────────────────────────────────
-    radios.forEach(radio => radio.addEventListener('change', toggleSections));
-    [lengthInput, heightInput, widthInput].forEach(input => input.addEventListener('input', calculateWeight));
-
-    // Initial setup
+    radios.forEach(r => r.addEventListener('change', toggleSections));
+    [lengthInput, heightInput, widthInput].forEach(i => i.addEventListener('input', calculateWeight));
     toggleSections();
-
 })();
 </script>
 </body>
