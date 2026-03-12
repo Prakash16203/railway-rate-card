@@ -3,6 +3,7 @@ from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
 from dotenv import load_dotenv
 import os
+from flask import send_from_directory
 
 print(os.path.exists('static/Singh_logo.png'))  # Should print True
 
@@ -389,12 +390,20 @@ def logout():
     return redirect(url_for("login"))
 
 
+
+@app.route('/sw.js')
+def service_worker():
+    return send_from_directory('static', 'sw.js',
+                               mimetype='application/javascript')
+
+
 # ────────────────────────────────────────────────
 # Run the app (Railway / production friendly)
 # ────────────────────────────────────────────────
 if __name__ == "__main__":
     port = int(os.getenv("PORT", 5000))
     app.run(host="0.0.0.0", port=port, debug=False)
+
 
 
 
